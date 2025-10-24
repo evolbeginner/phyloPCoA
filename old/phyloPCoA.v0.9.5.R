@@ -236,6 +236,7 @@ get_binary <- function(abundance, rs){
     root_value <- rs[length(rs)]
     n_trait <- dim(abundance)[2]
     a <- log(abundance[, n_trait]) - root_value
+    #a <- log(abundance[,dim(abundance)[2]]) - log(mean(abundance[,n_trait]))
     v <- rep(0, length(a))
     v[a>0] <- 1
     names(v) <- rownames(abundance)

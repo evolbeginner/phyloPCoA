@@ -5,8 +5,6 @@
 
 ###############################################################
 # Update history
-# 2025-10-24
-#   Rho solved by forcing v%*%v' where v iid~ U(0.5,1).
 # 2025-10-22
 #   R improved with nearPD
 #   re-organized into functions
@@ -91,6 +89,7 @@ generate_metadata2 <- function(metadata_file, abundance){
         group_by(sample_id) %>%
         mutate(abundance = abundance / sum(abundance)) %>%
         ungroup()
+    #write.table(merged_data, "prop_abundance.txt")
 
     average_abundance <- merged_data %>%
       group_by(species, taxon) %>%
@@ -110,81 +109,20 @@ generate_metadata2 <- function(metadata_file, abundance){
 }
 
 
-simulate_covariance <- function(n, rate = 1,
-	weak_range = c(-0.1, 0.1),
-	strong_range = c(0.4, 0.8),
-	split_quantile = 0.5) {
-	
-	# 1. Draw standard deviations (σ_i ~ Exp(rate))
-	#sigma <- rexp(n, rate = rate)
-	sigma <- rep(1/rate, n)
-    sigma[length(sigma)] <- sigma[length(sigma)]
-	
-	# 2. Initialize correlation matrix
-	#Rho <- matrix(runif(n * n, -1, 1), n, n)
-	Rho <- matrix(runif(n * n, 0.5, 1), n, n)
-	Rho <- (Rho + t(Rho)) / 2
-	diag(Rho) <- 1
-	
-	# 3. Quantile-based split index
-	split_index <- ceiling(n * split_quantile)
-	
-	weak_idx <- 1:split_index
-	strong_idx <- min((split_index+1),n):n
-	
-	# 4. Adjust correlations for last column
-	Rho[weak_idx, n] <- runif(length(weak_idx), weak_range[1], weak_range[2])
-	Rho[strong_idx, n] <- runif(length(strong_idx), strong_range[1], strong_range[2])
-	Rho[n, ] <- Rho[, n]
-    write.table(round(Rho,3), file.path(outdir, "Rho_old.tbl"))
-	
-	# 5. Build covariance
+simulate_covariance <- function(n, rate = 1) {
+	# Draw standard deviations (σ_i ~ Exp(rate))
+	sigma <- rexp(n, rate = rate)
+	# Draw random correlations uniformly in [-1, 1]
+	Rho <- matrix(runif(n * n, -1, 1), n, n)
+	Rho <- (Rho + t(Rho)) / 2  # make symmetric
+	diag(Rho) <- 1             # set diagonal to 1
+	# Construct covariance matrix: Σ = D * Rho * D
 	D <- diag(sigma)
 	Sigma <- D %*% Rho %*% D
+	# Ensure positive definiteness
 	Sigma <- as.matrix(Matrix::nearPD(Sigma)$mat)
-    Rho <- cov2cor(Sigma)
 	
-	return(list(Sigma=Sigma, Rho=Rho))
-}
-
-
-simulate_covariance <- function(n, rate = 1,
-                                weak_range = c(-0.1, 0.1),
-                                strong_range = c(0.4, 0.8),
-                                split_quantile = 0.5) {
-  # 1. Split indices
-  split_idx <- ceiling(n * split_quantile)
-  weak_idx   <- 1:split_idx
-  strong_idx <- (split_idx + 1):n
-  
-  # 2. Build factor loadings that produce desired correlations
-  loadings <- rep(0, n)
-  loadings[weak_idx]   <- runif(length(weak_idx), weak_range[1], weak_range[2])
-  loadings[strong_idx] <- runif(length(strong_idx), strong_range[1], strong_range[2])
-    if(length(loadings)>n){
-        loadings <- loadings[-length(loadings)]
-    }
-  
-  # 3. Correlation from single common factor + unique variance
-  Rho <- outer(loadings, loadings)
-  diag(Rho) <- 1
-  # unique variance so total correlation structure realistic
-  Rho <- Rho + diag(1 - diag(Rho))
-  
-  # slight random jitter to avoid perfect structure
-  Rho <- Rho + matrix(rnorm(n^2, 0, 0.02), n, n)
-  Rho <- (Rho + t(Rho))/2
-  diag(Rho) <- 1
-  write.table(round(Rho,3), file.path(outdir, "Rho_old.tbl"))
-  
-  # 4. Force PD (small shrink only)
-  Rho <- as.matrix(Matrix::nearPD(Rho, corr = TRUE)$mat)
-  
-  # 5. Create covariance with arbitrary SDs
-  sigma <- rep(1/rate, n)
-  Sigma <- diag(sigma) %*% Rho %*% diag(sigma)
-  
-  return(list(Rho = Rho, Sigma = Sigma))
+	return(Sigma)
 }
 
 
@@ -205,37 +143,28 @@ do_sim <- function(tnum, bnum, lambda, mu, rho, age){
     scale_R <- 1/distRoot(tree)[1]
     # XQ, R controls sigma in mvSIM() (covariance matrix)
     #R <- crossprod(matrix(runif(bnum*bnum),bnum)) * scale_R
-    sim_cov_res <- simulate_covariance(bnum, rate=1/scale_R, weak_range=c(-0.01,0.01), strong_range=c(0.8,1), split_quantile=0.99)
-    Sigma <- sim_cov_res$Sigma
-    Rho <- sim_cov_res$Rho
+    R <- simulate_covariance(bnum, 1/scale_R)
+    # last more correlation
+    #R[1:5,ncol(R)] <- 1/rbeta(5, 1, 1) * R[1:5,ncol(R)]
+    #R[nrow(R),1:5] <- 1/rbeta(5, 10, 1) * R[nrow(R),1:5]
 
-    rs <- rnorm(ncol(Sigma), mean_a, sd_a) # diff root_values, XQ
-    abundance <- exp(mvSIM(tree, model="BM1", nsim=1, param=list(sigma=Sigma, theta=rs)))
-    log_abundance <- abundance
-
-    above_names <- get_binary(abundance, rs) #last column above root value
-
-    # remove the last column (binary trait, not microbial abundance)
-    num_cols <- ncol(abundance)
-    abundance <- abundance[, 1:(num_cols - 1)]
+    rs <- rnorm(ncol(R), mean_a, sd_a) # diff root_values, XQ
+    abundance <- exp(mvSIM(tree, model="BM1", nsim=1, param=list(sigma=R, theta=rs)))
+    above_names <- get_binary(abundance, rs)
 
     a_values <- rnorm(nsim, mean = mean_a, sd = sd_a)
+
     C <- vcv(tree)
+
     abun <- abundance
     prop <- t(apply(abundance, 1, function(x) x/sum(x)))
 
-    return(list(abundance=abundance, abun=abun, prop=prop, C=C, 
-        above_names=above_names, tree=tree, 
-        Sigma = Sigma, Rho = Rho,
-        above_names=above_names)
-    )
+    return(list(abundance=abundance, abun=abun, prop=prop, C=C, above_names=above_names, tree=tree))
 }
 
 
 get_binary <- function(abundance, rs){
-    root_value <- rs[length(rs)]
-    n_trait <- dim(abundance)[2]
-    a <- log(abundance[, n_trait]) - root_value
+    a <- log(abundance[,dim(abundance)[2]]) - rs[length(rs)]
     v <- rep(0, length(a))
     v[a>0] <- 1
     names(v) <- rownames(abundance)
@@ -261,8 +190,7 @@ sim_wrapper <- function(tnum=10, bnum=8, filter_BM_P=1, lambda=1, mu=1, rho=0.00
         prop <- prop[, selected_cols, drop = FALSE]
     }
 
-    #return(list(abun=abun, prop=prop, C=C, tree=tree, above_names=above_names))
-    return(do_sim_res)
+    return(list(abun=abun, prop=prop, C=C, tree=tree))
 }
 
 
@@ -287,79 +215,81 @@ check_BM <- function(abundance, tree){
 ######################################
 create_single_plot <- function(matrix, method = "bray", color = "black", title = "PCoA Plot", group_samples = NULL){
   # Check input type
-	if (!is.matrix(matrix) && !is.data.frame(matrix)) {
+	f (!is.matrix(matrix) && !is.data.frame(matrix)) {
     stop("Input must be a matrix or data.frame.")
   }
   
   # Compute distance
-	diss <- vegan::vegdist(matrix, method = method)
+	iss <- vegan::vegdist(matrix, method = method)
   
   # Perform PCoA (cmdscale)
-	pts <- cmdscale(diss, k = 2, eig = TRUE)
+	ts <- cmdscale(diss, k = 2, eig = TRUE)
   
   # Extract coordinates correctly
-	coords <- as.data.frame(pts$points)
-	if (ncol(coords) < 2) {
-        stop("PCoA returned less than two dimensions — check your input data.")
-    }
-	colnames(coords) <- c("PC1", "PC2")
-	coords$Sample <- rownames(matrix)
-	coords$Color <- color  # default color
+	oords <- as.data.frame(pts$points)
+	f (ncol(coords) < 2) {
+    stop("PCoA returned less than two dimensions — check your input data.")
+  }
+	olnames(coords) <- c("PC1", "PC2")
+	oords$Sample <- rownames(matrix)
+	oords$Color <- color  # default color
   
-    # Apply group colors if provided
-    if (!is.null(group_samples) && is.list(group_samples)) {
-        for (grp in group_samples) {
-            if (!is.null(grp$labels) && !is.null(grp$col)) {
-                coords$Color[coords$Sample %in% grp$labels] <- grp$col
-            }
-        }
+  # Apply group colors if provided
+	f (!is.null(group_samples) && is.list(group_samples)) {
+    for (grp in group_samples) {
+      if (!is.null(grp$labels) && !is.null(grp$col)) {
+        coords$Color[coords$Sample %in% grp$labels] <- grp$col
+      }
     }
+  }
   
-    # ---- Plot ----
-    xrange <- range(coords$PC1)
-    yrange <- range(coords$PC2)
-	plot(coords$PC1, coords$PC2,
-        pch = 19,
-        col = coords$Color,
-        xlab = "PC1",
-        ylab = "PC2",
-        main = title,
-        asp = 1,
-        xlim = xrange*1.2,
-        ylim = yrange*1.2
-    )
+  # ---- Plot ----
+	lot(coords$PC1, coords$PC2,
+       pch = 19,
+       col = coords$Color,
+       xlab = "PC1",
+       ylab = "PC2",
+       main = title,
+       asp = 1)
   
   # Add sample labels
-	text(coords$PC1, coords$PC2,
+	ext(coords$PC1, coords$PC2,
        labels = coords$Sample,
        pos = 4,
        cex = 0.8)
   
-    if (!is.null(group_samples)) {
-        for (grp in group_samples) {
-            sel <- coords$Sample %in% grp$labels
-            if (sum(sel) >= 3) { # needs >=3 to compute ellipse
-                vegan::ordiellipse(coords[sel, c("PC1","PC2")],
-                    rep(1, sum(sel)),
-                    kind = 'sd', conf = 0.95, draw = 'polygon',
-                    lwd = 1.2, col = grp$col,
-                )
-            }
-        }
+    f (!is.null(group_samples)) {
+    for (grp in group_samples) {
+      sel <- coords$Sample %in% grp$labels
+      if (sum(sel) >= 3) { # needs >=3 to compute ellipse
+        vegan::ordiellipse(coords[sel, c("PC1","PC2")],
+                           rep(1, sum(sel)),
+                           kind = "se", conf = 0.95, draw = 'polygon',
+                           lwd = 1.2, col = grp$col,
+                        )
+      }
     }
+  }
 }
 
 
-plot_graphs <- function(m1, m2, m3, outfile, grp_list) {
+plot_graphs <- function(m1, m2, m3, outfile) {
+    pdf(outfile)
     par(mfrow = c(2, 2))
-
-    create_single_plot(m1, method = "euclidean", "green", title = "PCoA BC-distance", group_samples = grp_list)
-    create_single_plot(m2, method = "euclidean", "cyan", title = "PCoA: Euclidean (m2)", group_samples = grp_list)
-    create_single_plot(m3, method = "euclidean", "red", title = "PCoA: Euclidean (m3)", group_samples = grp_list)
-
-    tip_colors <- ifelse(tree$tip.label %in% above_names, "orange", "blue")
-    plot(tree, tip.color = tip_colors, cex = 0.3, label.offset = 0.01)
     
+    root_node <- Ntip(tree) + 1   # the root node number
+    children <- tree$edge[tree$edge[,1] == root_node, 2]
+    child1_tips <- sort(tree$tip.label[unlist(Descendants(tree, children[1], type = "tips"))])
+    child2_tips <- sort(tree$tip.label[unlist(Descendants(tree, children[2], type = "tips"))])
+    group1 <- list(labels = child1_tips, col = 'orange')
+    group2 <- list(labels = child2_tips, col = 'blue')
+    print(child1_tips)
+    
+    create_single_plot(m1, method = "euclidean", "green", title = "PCoA BC-distance", group_samples = list(group1, group2))
+    create_single_plot(m2, method = "euclidean", "cyan", title = "PCoA: Euclidean (m2)", group_samples = list(group1, group2))
+    create_single_plot(m3, method = "euclidean", "red", title = "PCoA: Euclidean (m3)", group_samples = list(group1, group2))
+    
+    dev.off()
 }
 
 
@@ -449,7 +379,6 @@ spec = matrix(c(
     'bd', 'b', 2, "character",
     'dist', 'd', 2, 'character',
     'inter', 'i', 0, "logical",
-    'standardize', 'S', 0, "logical",
     'help' , 'h', 0, "logical",
     'outdir', 'o', 1, "character",
     'force', 'f', 0, 'logical'
@@ -531,10 +460,6 @@ if(! is.null(opt$dist)){
     dist_method <- opt$dist
 }
 
-if(! is.null(opt$standardize)){
-    is_standardize <- TRUE
-}
-
 if(! is.null(opt$force)){
     is_force <- TRUE
 }
@@ -565,9 +490,6 @@ if(! is_sim){
     prop <- sim_wrapper_result$prop
     C <- sim_wrapper_result$C #phylo_cov
     tree <- sim_wrapper_result$tree
-    above_names <- sim_wrapper_result$above_names
-    Sigma <- sim_wrapper_result$Sigma
-    Rho <- sim_wrapper_result$Rho
 }
 
 
@@ -592,46 +514,37 @@ rownames(P) <- rownames(C)
 cat("\n\n")
 
 
-rounded_to <- 3
+rounded_to <- 4
 write.table(round(prop, rounded_to), file = file.path(outdir, 'prop.tbl'), sep = "\t", quote = FALSE)
 write.table(round(log_prop, rounded_to), file = file.path(outdir, 'log_prop.tbl'), sep = "\t", quote = FALSE)
 write.table(round(log_prop_geomean, rounded_to), file = file.path(outdir, 'log_prop_geomean.tbl'), sep = "\t", quote = FALSE)
 write.table(round(P, rounded_to), file = file.path(outdir, 'P.tbl'), sep = "\t", quote = FALSE)
-write.table(round(Sigma, rounded_to), file = file.path(outdir, 'Sigma.tbl'), sep = "\t", quote = FALSE)
-write.table(round(Rho, rounded_to), file = file.path(outdir, 'Rho.tbl'), sep = "\t", quote = FALSE)
 
 
 ##################################
 #rownames(P) <- rownames(log_prop_geomean)
+rounded_to <- 3
+
+cat("Original composition", "\n")
+column_sorted_ind <- order( colMeans(prop, na.rm=TRUE), decreasing=TRUE )
+range <- 1:10
+cat("prop: before transformation (raw)", "\n")
+column_sorted_ind_2 <- column_sorted_ind[range][column_sorted_ind[range] != bnum]
+round(prop[, column_sorted_ind_2], rounded_to)
+
+cat("\n")
+cat("log_prop_geomean: minus geomean followed by transformation", "\n")
+round(P[, column_sorted_ind_2], rounded_to)
+cat("\n\n\n")
+
 # normal pcoa, not phylo corrected
 pcoa_1 <- calculate_pcoa(log_prop_geomean, dist_method, is_standardize)
 
-get_groups <- function(tree){
-    root_node <- Ntip(tree) + 1   # the root node number
-    children <- tree$edge[tree$edge[,1] == root_node, 2]
-    child1_tips <- sort(tree$tip.label[unlist(Descendants(tree, children[1], type = "tips"))])
-    child2_tips <- sort(tree$tip.label[unlist(Descendants(tree, children[2], type = "tips"))])
-    group1 <- list(labels = child1_tips, col = 'green')
-    group2 <- list(labels = child2_tips, col = 'purple')
-    return(list(group1=group1, group2=group2))
-}
-
-
-##########################################
-# output file pdf
-outfile <- file.path(outdir, "pcoa.pdf")
-pdf(outfile)
-
 # phylo corrected
-grp_list <- list(group1=list('labels'=above_names, 'col'='orange'), group2=list('labels'=setdiff(tree$tip.label,above_names),'col'='blue'))
 if(! is_inter){
     pcoa_2 <- calculate_pcoa(P, dist_method, is_standardize)
-    plot_graphs(prop, log_prop_geomean, P, outfile, grp_list)
+    plot_graphs(prop, log_prop_geomean, P, file.path(outdir, "pcoa.pdf"))
 }
-
-grp_list <- get_groups(tree)
-plot_graphs(prop, log_prop_geomean, P, outfile, grp_list)
-dev.off()
 
 cat(round(pcoa_1$eig/sum(pcoa_1$eig), 3), "\n", round(pcoa_2$eig/sum(pcoa_2$eig), 3), "\n")
 
