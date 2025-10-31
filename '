@@ -5,8 +5,6 @@
 
 ###############################################################
 # Update history
-# 2025-10-31
-#   LDA, fdr, BDI
 # 2025-10-24
 #   Rho solved by forcing v%*%v' where v iid~ U(0.5,1).
 # 2025-10-22
@@ -45,7 +43,6 @@
 
 ###############################################################
 #set.seed(2)
-suppressWarnings(
 suppressPackageStartupMessages({
     library(getopt)
     library(dplyr)
@@ -63,9 +60,7 @@ suppressPackageStartupMessages({
 
     library(Matrix)
     library(MASS)
-    library(cluster) #silhouette()
 })
-)
 
 
 ##################################
@@ -73,59 +68,21 @@ calculate_pcoa <- function(X, method = "bray", scaled=FALSE, grp_list) {
     if(scaled == TRUE){X <- scale(X)}
     distance <- vegdist(X, method = method)
     pcoa_res <- cmdscale(distance, eig = T, k = 2)
-    return(pcoa_res)
-}
 
-
-check_clustering <- function(pcoa_res, grp_list){
     lda_input <- as.data.frame(pcoa_res$points)
     group_map <- unlist(lapply(names(grp_list), function(g) {
         setNames(rep(g, length(grp_list[[g]]$labels)), grp_list[[g]]$labels)
     }))
     sample_names <- names(group_map)
     grp_factor <- factor(group_map[sample_names])
-
-    # do LDA
     lda_model <- lda(grp_factor ~ ., data = lda_input)
     lda_pred <- predict(lda_model)
-    conf_mat <- table(True = grp_factor, Pred = lda_pred$class)
-    acc <- sum(diag(conf_mat))/sum(conf_mat)
-    cat("Accuracy based on LDA:\t", acc, "\n")
-
-    # anova
+    #print(table(True = grp_factor, Pred = lda_pred$class))
     #print(summary(aov(V1 ~ group, data = cbind(as.data.frame(pcoa_res$points), group = grp_factor))))
 
-    # fisher's discriminant ratio
-    coords <- as.data.frame(pcoa_res$points[, 1:2])  # we only need first two PCs
-    fdr_value <- fisher_ratio(coords, grp_factor)
-    cat("fdr_value:\t", fdr_value, "\n")
+    coords <- as.data.frame(pcoa_res$x[, 1:2])  # we only need first two PCs
 
-    # BDI Davies-Bouldin index
-    db_index <- davies_bouldin(coords, grp_factor)
-    cat("DBI:\t", db_index, "\n")
-    cat("\n")
-}
-
-
-fisher_ratio <- function(coords, group) {
-  # compute global Fisher's discriminant ratio
-  grand_center <- colMeans(coords)
-  
-  # Between-group scatter
-  SB <- sum(sapply(levels(group), function(g) {
-    n <- sum(group == g)
-    diff <- colMeans(coords[group == g, ]) - grand_center
-    n * sum(diff^2)
-  }))
-  
-  # Within-group scatter
-  SW <- sum(sapply(levels(group), function(g) {
-    Xg <- coords[group == g, , drop = FALSE]
-    sum(rowSums((Xg - colMeans(Xg))^2))
-  }))
-  
-  ratio <- SB / SW
-  return(ratio)
+    return(pcoa_res)
 }
 
 
@@ -138,37 +95,6 @@ generate_metadata <- function(metadata_file){
         #sample_n(1)  # Sample one row from each group
     return(selected_samples)
 }
-
-
-davies_bouldin <- function(coords, group) {
-  groups <- levels(group)
-  centroids <- sapply(groups, function(g) colMeans(coords[group == g, ]))
-  centroids <- t(centroids)
-  
-  # Compute within-cluster scatter (average distance to centroid)
-  S <- sapply(groups, function(g) {
-    mean(dist(rbind(centroids[g,], coords[group == g, ]))[1:nrow(coords[group == g, ])])
-  })
-  
-  # Compute inter-centroid distances
-  M <- as.matrix(dist(centroids))
-  
-  # Compute pairwise Rij and then DB
-  R <- matrix(0, length(groups), length(groups))
-  for (i in seq_along(groups)) {
-    for (j in seq_along(groups)) {
-      if (i != j) {
-        R[i, j] <- (S[i] + S[j]) / M[i, j]
-      } else {
-        R[i, j] <- NA
-      }
-    }
-  }
-  D_i <- apply(R, 1, max, na.rm = TRUE)
-  DB <- mean(D_i)
-  return(DB)
-}
-
 
 generate_metadata2 <- function(metadata_file, abundance){
     metadata <- read.table(metadata_file, header = T)
@@ -322,7 +248,7 @@ do_sim <- function(tnum, bnum, lambda, mu, rho, age){
     #sim_cov_res <- simulate_covariance2(bnum, rate=1/scale_R, weak_range=c(-0.01,0.01), strong_range=c(0.8,1), split_quantile=0.2)
 
     # Uyeda2015
-    sim_cov_res <- simulate_covariance3(bnum, rate=1/scale_R, exponent=0.1)
+    sim_cov_res <- simulate_covariance3(bnum, rate=1/scale_R, exponent=4)
     Sigma <- sim_cov_res$Sigma
     Rho <- sim_cov_res$Rho
 
@@ -737,32 +663,18 @@ pdf(outfile)
 
 #rownames(P) <- rownames(log_prop_geomean)
 # normal pcoa, not phylo corrected
-grp_list <- list(group1=list('labels'=above_names, 'col'='orange'), group2=list('labels'=setdiff(tree$tip.label,above_names),'col'='blue'))
 pcoa_1 <- calculate_pcoa(log_prop_geomean, dist_method, is_standardize, grp_list)
 
 # phylo corrected
+grp_list <- list(group1=list('labels'=above_names, 'col'='orange'), group2=list('labels'=setdiff(tree$tip.label,above_names),'col'='blue'))
 if(! is_inter){
     pcoa_2 <- calculate_pcoa(P, dist_method, is_standardize, grp_list)
     plot_graphs(prop, log_prop_geomean, P, outfile, grp_list)
 }
 
-cat("groups determined by trait\n")
-cat("pcoa_1\n")
-check_clustering(pcoa_1, grp_list)
-cat("pcoa_2\n")
-check_clustering(pcoa_2, grp_list)
-
-
-##################################
-# split by descedents of root
+##########################################
 grp_list <- get_phylo_groups(tree)
 plot_graphs(prop, log_prop_geomean, P, outfile, grp_list)
-
-cat("groups determined by the two descedent clades of root\n")
-cat("pcoa_1\n")
-check_clustering(pcoa_1, grp_list)
-cat("pcoa_2\n")
-check_clustering(pcoa_2, grp_list)
 
 dev.off()
 
