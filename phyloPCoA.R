@@ -322,7 +322,7 @@ do_sim <- function(tnum, bnum, lambda, mu, rho, age){
     #sim_cov_res <- simulate_covariance2(bnum, rate=1/scale_R, weak_range=c(-0.01,0.01), strong_range=c(0.8,1), split_quantile=0.2)
 
     # Uyeda2015
-    sim_cov_res <- simulate_covariance3(bnum, rate=1/scale_R, exponent=0.1)
+    sim_cov_res <- simulate_covariance3(bnum, rate=1/scale_R, exponent=10)
     Sigma <- sim_cov_res$Sigma
     Rho <- sim_cov_res$Rho
 
@@ -486,9 +486,12 @@ plot_graphs <- function(m1, m2, m3, outfile, grp_list) {
     create_single_plot(m2, method = "euclidean", "cyan", title = "PCoA: Euclidean (m2)", group_samples = grp_list)
     create_single_plot(m3, method = "euclidean", "red", title = "PCoA: Euclidean (m3)", group_samples = grp_list)
 
-    tip_colors <- ifelse(tree$tip.label %in% above_names, "orange", "blue")
+    tip_colors <- rep(NA, length(tree$tip.label))
+    #tip_colors <- ifelse(tree$tip.label %in% above_names, "orange", "blue")
+    for (g in grp_list) {
+        tip_colors[tree$tip.label %in% g$labels] <- g$col
+    }
     plot(tree, tip.color = tip_colors, cex = 0.3, label.offset = 0.01)
-    
 }
 
 
@@ -555,7 +558,7 @@ tnum <- 10
 # bac (microbiota) taxa num
 bnum <- 8
 
-transform <- "garland"
+transform <- 'garland'
 dist_method <- 'euclidean'
 is_standardize <- FALSE
 
@@ -746,6 +749,7 @@ if(! is_inter){
     plot_graphs(prop, log_prop_geomean, P, outfile, grp_list)
 }
 
+
 cat("groups determined by trait\n")
 cat("pcoa_1\n")
 check_clustering(pcoa_1, grp_list)
@@ -767,5 +771,30 @@ check_clustering(pcoa_2, grp_list)
 dev.off()
 
 cat(round(pcoa_1$eig/sum(pcoa_1$eig), 3), "\n", round(pcoa_2$eig/sum(pcoa_2$eig), 3), "\n")
+
+calculate_correl_with_Rho <- function(Rho, pcoa_1, pcoa_2){
+    sorted_norm_Rho_eigens <- sort(eigen(Rho)$values, T)/sum(eigen(Rho)$values)
+    len <- length(sorted_norm_Rho_eigens)
+
+    # correl
+    len1 <- len
+    pcoa_1_norm <- (pcoa_1$eig/sum(pcoa_1$eig))
+    pcoa_2_norm <- (pcoa_2$eig/sum(pcoa_2$eig))
+    print(cor(sorted_norm_Rho_eigens[1:len1], pcoa_1_norm[1:len1]))
+    print(cor(sorted_norm_Rho_eigens[1:len1], pcoa_2_norm[1:len1]))
+
+    # RMSD
+    len2 <- 2
+    print( sqrt( sum((sorted_norm_Rho_eigens[1:len2] - pcoa_1_norm[1:len2])^2)/len2 ) )
+    print( sqrt( sum((sorted_norm_Rho_eigens[1:len2] - pcoa_2_norm[1:len2])^2)/len2 ) )
+
+    # rela diff
+    len3 <- 3
+    print( sum ( (pcoa_1_norm[1:len3]-sorted_norm_Rho_eigens[1:len3])/sorted_norm_Rho_eigens[1:len3] ) / len3 )
+    print( sum ( (pcoa_2_norm[1:len3]-sorted_norm_Rho_eigens[1:len3])/sorted_norm_Rho_eigens[1:len3] ) / len3 )
+    cat("\n")
+}
+
+calculate_correl_with_Rho(Rho, pcoa_1, pcoa_2)
 
 
