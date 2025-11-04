@@ -319,8 +319,8 @@ do_sim <- function(tnum, bnum, lambda, mu, rho, age, exponent){
     write.tree(tree, file=file.path(outdir, 'sim.tree'))
 
     # diff root_values
-    mean_a=0; sd_a=1; nsim <- bnum + 1 #the last is the phenotype trait
-    #abundance <- matrix(0, nrow = tnum, ncol = nsim); 
+    mean_a=0; sd_a=1; nsim=bnum
+    abundance <- matrix(0, nrow = tnum, ncol = nsim); 
 
     # generate matrix R (randomly)
     scale_R <- 1/distRoot(tree)[1]
@@ -329,7 +329,7 @@ do_sim <- function(tnum, bnum, lambda, mu, rho, age, exponent){
     #sim_cov_res <- simulate_covariance2(bnum, rate=1/scale_R, weak_range=c(-0.01,0.01), strong_range=c(0.8,1), split_quantile=0.2)
 
     # Uyeda2015
-    sim_cov_res <- simulate_covariance3(nsim, rate=1/scale_R, exponent=exponent)
+    sim_cov_res <- simulate_covariance3(bnum, rate=1/scale_R, exponent=exponent)
     Sigma <- sim_cov_res$Sigma
     Rho <- sim_cov_res$Rho
 
@@ -345,9 +345,10 @@ do_sim <- function(tnum, bnum, lambda, mu, rho, age, exponent){
 
     a_values <- rnorm(nsim, mean = mean_a, sd = sd_a)
     C <- vcv(tree)
+    abun <- abundance
     prop <- t(apply(abundance, 1, function(x) x/sum(x)))
 
-    return(list(abundance=abundance, prop=prop, C=C, 
+    return(list(abundance=abundance, abun=abun, prop=prop, C=C, 
         above_names=above_names, tree=tree, 
         Sigma = Sigma, Rho = Rho,
         above_names=above_names)
@@ -366,7 +367,7 @@ get_binary <- function(abundance, rs){
 }
 
 
-sim_wrapper <- function(tnum=10, bnum=8, filter_P=1, lambda=1, mu=1, rho=0.001, age=1, exponent=0){
+sim_wrapper <- function(tnum=10, bnum=8, filter_BM_P=1, lambda=1, mu=1, rho=0.001, age=1, exponent=0){
     do_sim_res <- do_sim(tnum, bnum, lambda, mu, rho, age, exponent=exponent)
     abundance <- do_sim_res$abundance
     abun <- do_sim_res$abun
@@ -375,34 +376,33 @@ sim_wrapper <- function(tnum=10, bnum=8, filter_P=1, lambda=1, mu=1, rho=0.001, 
     tree <- do_sim_res$tree
     above_names <- do_sim_res$above_names; cat("above zero:\t", above_names, "\n")
 
+    # XQ: set P-value for brownian motion checking (e.g., "-p 0.1")
+    if(filter_BM_P < 1){
+        phylo_sig <- check_BM(abundance, tree)
+        selected_cols <- which(phylo_sig$abun < filter_BM_P)
+        abundance <- abundance[, selected_cols, drop = FALSE]
+        abun <- abun[, selected_cols, drop = FALSE]
+        prop <- prop[, selected_cols, drop = FALSE]
+    }
+
     #return(list(abun=abun, prop=prop, C=C, tree=tree, above_names=above_names))
     return(do_sim_res)
 }
 
 
-check_BM <- function(abundance, tree, filter_P, mode){
+check_BM <- function(abundance, tree){
     n <- dim(abundance)[2]
     phylo_sig <- data.frame(P=rep(1,n), K=rep(1,n))
     for(i in 1:dim(abundance)[2]){
-        trait <- log(abundance[,i]) - log(sum(abundance[,1]))
+        trait <- log(abundance[,i])-log(sum(abundance[,1]))
         trait_data <- data.frame( species=rownames(abundance), trait=trait )
         trait_data$species <- factor(trait_data$species, levels = tree$tip.label)
         trait_values <- trait_data$trait[match(tree$tip.label, trait_data$species)]
-        names(trait_values) <- tree$tip.label
-
         phylo_signal <- suppressMessages(
-            phylosig_res <- phylosig(tree, trait_values, method = "lambda", test = TRUE)
+            phylosig(tree, trait_values, method = "lambda", test = TRUE)
         )
-        fitBM <- fitContinuous(tree, trait_values, model = "BM")
-
-        if(mode == 'BM'){
-            lrt_p_value <- pchisq(2 * (phylosig_res$logL - fitBM$opt$lnL), 
-                df=1, lower.tail = FALSE)
-            phylo_sig$P[i] <- lrt_p_value
-        } else if(mode == 'lambda'){
-            phylo_sig$P[i] <- phylo_signal$P
-            #phylo_sig$K[i] <- phylo_signal$K
-        }
+        phylo_sig$P[i] <- phylo_signal$P
+        #phylo_sig$K[i] <- phylo_signal$K
     }
     #names(phylo_sig) <- colnames(abundance)
     return(phylo_sig)
@@ -550,7 +550,7 @@ read_data <- function(C){
 
     abun <- abundance #old name: Y
     prop <- abundance #old name: Q
-    return(list(C=C, abundance=abundance, prop=prop))
+    return(list(C=C, abun=abun, prop=prop))
 }
 
 
@@ -567,14 +567,14 @@ do_transformation <- function(transform, C, log_prop_geomean){
     if (grepl("chol", transform, ignore.case = T)){
         #de-correlation by Cholesky decomposition
         L_inv <- solve(t(chol(C)))
-        #L_inv <- L_inv * sqrt(diag(C)[1])
+        L_inv <- L_inv * sqrt(diag(C)[1])
         X <- L_inv %*% t((t(log_prop_geomean) - root_values))
         X <- t(t(X) + root_values)
     } else if(grepl("garland", transform, ignore.case = T)){
         # using C^(-0.5)
         eig_decomp <- eigen(C)
         L <- eig_decomp$vectors %*% diag(1/sqrt(eig_decomp$values)) %*% t(eig_decomp$vectors)
-        #L <- L * sqrt(diag(C)[1])
+        L <- L * sqrt(diag(C)[1])
         X <- L %*% t((t(log_prop_geomean) - root_values))
         X <- t(t(X) + root_values)
     }
@@ -591,13 +591,7 @@ age <- 7.5
 is_one <- FALSE
 is_sim <- FALSE
 is_inter <- FALSE
-
-# BM means the default is pagel's lambda = 1 (standard BM) and those with p-value in a LRT >=0.05 is accepted; "lambda" means that the default is lambda = 0, and only p-value <0.05 is accepted.
-# i will modify this later to enable pagel's lambda, which is better for empirical data.
-# Now it works only under simulations where log(prop) perfectly follows standard BM.
-filter_mode <- 'BM'
-filter_P <- 1
-is_check <- FALSE
+filter_BM_P <- 1
 
 # control whether features (microbial abundance) are correlated (0) or not (big value), see Rho
 exponent <- 0
@@ -623,11 +617,8 @@ spec = matrix(c(
     'one', 'O', 0, "logical",
     'all', 'A', 0, "logical",
     #'transform', 'T', 2, "character",
-
     'sim', 's', 0, "logical",
-    'check', 'c', 2, "character",
-    'filter_P', 'p', 2, "double",
-
+    'filter_BM_P', 'p', 2, "double",
     'exponent', 'e', 2, "double",
     'tnum', 'T', 2, "integer",
     'bnum', 'B', 2, "integer",
@@ -692,16 +683,8 @@ if(! is.null(opt$transform)){
     transform <- opt$transform
 }
 
-if(! is.null(opt$check)){
-    check <- opt$check
-    checks <- strsplit(check, ",")[[1]]
-    filter_mode <- checks[1]
-    filter_P <- checks[2]
-    is_check = TRUE
-}
-# probably disabled later
-if(! is.null(opt$filter_P)){
-    filter_P <- opt$filter_P
+if(! is.null(opt$filter_BM_P)){
+    filter_BM_P <- opt$filter_BM_P
 }
 
 if(! is.null(opt$exponent)){
@@ -754,45 +737,17 @@ if(! is.null(opt$outdir)){
 #---------- start here ----------#
 ##################################
 if(! is_sim){
-    data_res <- read_data(C)
-    prop <- data_res$prop
-    abundance <- data_res$abundance
+    prop <- read_data(C)$prop
 } else{
+    sim_wrapper_result <- sim_wrapper(tnum, bnum, filter_BM_P, lambda, mu, rho, age, exponent)
     #col: bac taxa (bnum), row: host species (tnum)
-    sim_res <- do_sim(tnum, bnum, lambda, mu, rho, age, exponent)
-    C <- sim_res$C #phylo_cov
-    tree <- sim_res$tree
-
-    prop <- sim_res$prop
-    above_names <- sim_res$above_names
-
-    abundance <- sim_res$abundance
-    Sigma <- sim_res$Sigma
-    Rho <- sim_res$Rho
-}
-
-
-if(is_check){
-    phylo_sig <- check_BM(prop, tree, filter_P, filter_mode)
-    if(filter_mode == 'lambda'){
-        selected_cols <- which(phylo_sig$P < filter_P)
-    } else if(filter_mode == 'BM'){
-        selected_cols <- which(phylo_sig$P > filter_P)
-    }
-    if(length(selected_cols)<3){
-        stop("check BM: passed features < 3; try a larger number for --bnum; Exiting ......")
-    }
-    cat("checking BM with the mode", filter_mode, "\n")
-    cat(length(selected_cols), "out of", ncol(prop), "are kept")
-    cat("\n\n")
-    abundance <- abundance[, selected_cols, drop = FALSE]
-    prop <- prop[, selected_cols, drop = FALSE]
-
-    if(is_sim && "Sigma" %in% names(sim_res)){
-        #abundance <- abundance[, selected_cols, drop = FALSE]
-        Sigma <- Sigma[selected_cols, selected_cols]
-        Rho <- Rho[selected_cols, selected_cols]
-    }
+    abun <- sim_wrapper_result$abun
+    prop <- sim_wrapper_result$prop
+    C <- sim_wrapper_result$C #phylo_cov
+    tree <- sim_wrapper_result$tree
+    above_names <- sim_wrapper_result$above_names
+    Sigma <- sim_wrapper_result$Sigma
+    Rho <- sim_wrapper_result$Rho
 }
 
 
@@ -818,14 +773,12 @@ rownames(P) <- rownames(C)
 
 
 rounded_to <- 3
-if(is_sim){
 write.table(round(prop, rounded_to), file = file.path(outdir, 'prop.tbl'), sep = "\t", quote = FALSE, row.names=FALSE)
 write.table(round(log_prop, rounded_to), file = file.path(outdir, 'log_prop.tbl'), sep = "\t", quote = FALSE, row.names=FALSE)
 write.table(round(log_prop_geomean, rounded_to), file = file.path(outdir, 'log_prop_geomean.tbl'), sep = "\t", quote = FALSE, row.names=FALSE)
 write.table(round(P, rounded_to), file = file.path(outdir, 'P.tbl'), sep = "\t", quote = FALSE, row.names=FALSE)
 write.table(round(Sigma, rounded_to), file = file.path(outdir, 'Sigma.tbl'), sep = "\t", quote = FALSE, row.names=FALSE)
 write.table(round(Rho, rounded_to), file = file.path(outdir, 'Rho.tbl'), sep = "\t", quote = FALSE, row.names=FALSE)
-}
 
 
 ##################################
@@ -835,9 +788,6 @@ pdf(outfile)
 
 #rownames(P) <- rownames(log_prop_geomean)
 # normal pcoa, not phylo corrected
-if(!is_sim){
-    above_names <- c()
-}
 grp_list <- list(group1=list('labels'=above_names, 'col'='orange'), group2=list('labels'=setdiff(tree$tip.label,above_names),'col'='blue'))
 
 # BC
@@ -863,6 +813,9 @@ pcoas <- list(pcoa_0, pcoa_1, pcoa_2)
 compare_outdir <- file.path(outdir, "compare")
 dir.create(compare_outdir, recursive = TRUE)
 
+# compare the PC to the true R matrix (trait_cov: Sigma)
+calculate_correl_with_Rho(Rho, pcoas, file.path(compare_outdir, "compared_to_R_matrix.tbl"))
+
 # output eigenvalues and the indices of separating groups by major PCs
 for (i in seq_along(pcoas)){
     rounded_to <- 3
@@ -881,9 +834,8 @@ for (i in seq_along(pcoas)){
     if(i == 1){
         write(title, file=determined_by_trait_outfile, sep="\t")
     }
-    if(is_sim){
-        check_clustering(pcoa, pcoa_name=pcoa_name, grp_list=grp_list, outfile=determined_by_trait_outfile)
-    }
+    check_clustering(pcoa, pcoa_name=pcoa_name, grp_list=grp_list, outfile=determined_by_trait_outfile)
+
     # grp_by_phylo
     determined_by_phylo_outfile <- file.path(compare_outdir, "determined_by_phylo.tbl")
     if(i == 1){
@@ -893,14 +845,6 @@ for (i in seq_along(pcoas)){
 }
 
 dev.off()
-
-if(!is_sim){
-    q()
-}
-
-# compare the PC to the true R matrix (trait_cov: Sigma)
-calculate_correl_with_Rho(Rho, pcoas, file.path(compare_outdir, "compared_to_R_matrix.tbl"))
-
 
 
 ##################################
