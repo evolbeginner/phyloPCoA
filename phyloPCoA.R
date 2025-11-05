@@ -1,6 +1,7 @@
 #! /bin/env Rscript
 
-#Sishuo's idea on accounting phylogeny for proportion data
+# all rights reserved
+# Sishuo's idea on accounting phylogeny for proportion data
 
 
 ###############################################################

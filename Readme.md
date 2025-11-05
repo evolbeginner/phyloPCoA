@@ -106,7 +106,9 @@ This creates a 30‑species host tree (`tnum=30`) with 15 bacterial taxa (`bnum=
 - **Youhua Chen** — A first draft code.
 - **Sishuo Wang** — Code development, simulation implementation, conceptualization, and major updates (2024–2025)
 
-## 🪪 License
+## License
+© 2025 Sishuo Wang. All rights reserved.  
+This software is provided for reference and demonstration purposes only.  
+Reproduction or distribution of this code without written permission is prohibited.## 🪪 License
 
-All rights reserved.
 ```
