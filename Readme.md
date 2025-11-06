@@ -47,12 +47,12 @@ All outputs are written to `--outdir`.
 | File | Description |
 |------|-------------|
 | `sim.tree` | Simulated host phylogeny |
-| `Sigma.tbl` | Covariance matrix of simulated microbial features |
-| `Rho.tbl` | Correlation matrix of features |
-| `prop.tbl` | Relative abundance table |
-| `log_prop.tbl` | Log-transformed abundance data |
+| `Sigma.tbl` | Covariance matrix of simulated microbial relative abundance |
+| `Rho.tbl` | Correlation matrix of microbial relative abundance |
+| `prop.tbl` | Relative abundance of microbes |
+| `log_prop.tbl` | Log-transformed relative abundance data |
 | `P.tbl` | Phylogenetically transformed abundance matrix |
-| `pcoa.pdf` | PCoA visualizations (Bray–Curtis, Euclidean, phylogenetically corrected) |
+| `pcoa.pdf` | PCoA visualizations (Bray–Curtis, CLR, phylogenetically corrected CLR) |
 | `compare/` | Statistics and comparison results between PCoA and true covariance |
 
 Example directory layout:
@@ -86,7 +86,7 @@ haha/
 
 1. Simulate host phylogeny using the BD model.
 2. Generate microbial abundance matrix with covariance structure defined by `exponent`.
-3. Transform abundance data via CLR and phylogenetic correction.
+3. Transform abundance data via CLR and phylogenetically corrected CLR (pCLR).
 4. Perform PCoA for multiple distance metrics.
 5. Evaluate clustering and correspondence with the true covariance (Rho).
 6. Save all outputs to the chosen directory.
