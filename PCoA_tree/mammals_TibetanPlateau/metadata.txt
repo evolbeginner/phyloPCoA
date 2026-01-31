@@ -1,0 +1,15 @@
+sample_id	species
+1	Equus_kiang	Equus_kiang
+2	Bos_taurus	Bos_taurus
+3	Equus_caballus	Equus_caballus
+4	Ovis_aries	Ovis_aries
+5	Bos_grunniens	Bos_grunniens
+6	Pantholops_hodgsonii	Pantholops_hodgsonii
+7	Rhinopithecus_bieti	Rhinopithecus_bieti
+8	Eospalax_fontanierii_baileyi	Eospalax_fontanierii_baileyi
+9	Homo_sapiens	Homo_sapiens
+10	Sus_scrofa_domesticus	Sus_scrofa_domesticus
+11	Ochotona_curzoniae	Ochotona_curzoniae
+12	Canis_lupus_laniger	Canis_lupus_laniger
+13	Pseudois_nayaur	Pseudois_nayaur
+14	Bos_mutus	Bos_mutus

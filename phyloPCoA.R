@@ -3,11 +3,13 @@
 # all rights reserved
 # Sishuo's idea on accounting phylogeny for proportion data
 
-# v0.9.8
+# v0.9.9
 
 
 ###############################################################
 # Update history
+# 2026-01-31
+#   get_grp_info()
 # 2025-11-04
 #   all write to outdir
 # 2025-11-01
@@ -63,7 +65,8 @@ suppressPackageStartupMessages({
     library(phytools)
     library(phangorn)
 
-    library(adephylo)
+    #library(adephylo)
+    library(castor)
     library(vegan)
     library(labdsv) #pco
     library(compositions) #clr
@@ -101,7 +104,6 @@ check_clustering <- function(pcoa_res, pcoa_name, grp_list, outfile){
     dat <- cbind(as.data.frame(pcoa_res$points), group = grp_factor)
     k <- 2 #ncol(dat)-1
     fit <- manova(as.matrix(dat[, 1:k]) ~ group, data = dat)
-    #print(summary(fit, test = "Wilks"))
 
     # anova
     #print(summary(aov(V1 ~ group, data = cbind(as.data.frame(pcoa_res$points[, 1:2]), group = grp_factor))))
@@ -145,7 +147,6 @@ generate_metadata <- function(metadata_file){
     selected_samples <- metadata %>%
         group_by(species) %>%
         slice(1) #always the 1st, reproducible
-        #sample_n(1)  # Sample one row from each group
     return(selected_samples)
 }
 
@@ -210,86 +211,6 @@ generate_metadata2 <- function(metadata_file, abundance){
 }
 
 
-simulate_covariance <- function(n, rate = 1,
-	weak_range = c(-0.1, 0.1),
-	strong_range = c(0.4, 0.8),
-	split_quantile = 0.5) {
-	
-	# 1. Draw standard deviations (σ_i ~ Exp(rate))
-	sigma <- rexp(n, rate = rate)
-	#sigma <- rep(1/rate, n)
-    sigma[length(sigma)] <- sigma[length(sigma)]
-	
-	# 2. Initialize correlation matrix
-	#Rho <- matrix(runif(n * n, -1, 1), n, n)
-	Rho <- matrix(runif(n * n, 0.5, 1), n, n)
-	Rho <- (Rho + t(Rho)) / 2
-	diag(Rho) <- 1
-	
-	# 3. Quantile-based split index
-	split_index <- ceiling(n * split_quantile)
-	
-	weak_idx <- 1:split_index
-	strong_idx <- min((split_index+1),n):n
-	
-	# 4. Adjust correlations for last column
-	Rho[weak_idx, n] <- runif(length(weak_idx), weak_range[1], weak_range[2])
-	Rho[strong_idx, n] <- runif(length(strong_idx), strong_range[1], strong_range[2])
-	Rho[n, ] <- Rho[, n]
-    write.table(round(Rho,3), file.path(outdir, "Rho_old.tbl"))
-	
-	# 5. Build covariance
-	D <- diag(sigma)
-	Sigma <- D %*% Rho %*% D
-	Sigma <- as.matrix(Matrix::nearPD(Sigma)$mat)
-    Rho <- cov2cor(Sigma)
-	
-	return(list(Sigma=Sigma, Rho=Rho))
-}
-
-
-simulate_covariance2 <- function(n, rate = 1,
-                                weak_range = c(-0.1, 0.1),
-                                strong_range = c(0.4, 0.8),
-                                split_quantile = 0.5) {
-  # 1. Split indices
-  split_idx <- ceiling(n * split_quantile)
-  weak_idx   <- 1:split_idx
-  strong_idx <- (split_idx + 1):n
-  
-  # 2. Build factor loadings that produce desired correlations
-  loadings <- rep(0, n)
-  loadings[weak_idx]   <- runif(length(weak_idx), weak_range[1], weak_range[2])
-  loadings[strong_idx] <- runif(length(strong_idx), strong_range[1], strong_range[2])
-    if(length(loadings)>n){
-        loadings <- loadings[-length(loadings)]
-    }
-  
-  # 3. Correlation from single common factor + unique variance
-  Rho <- outer(loadings, loadings)
-  diag(Rho) <- 1
-  # unique variance so total correlation structure realistic
-  Rho <- Rho + diag(1 - diag(Rho))
-  
-  # slight random jitter to avoid perfect structure
-  Rho <- Rho + matrix(rnorm(n^2, 0, 0.02), n, n)
-  Rho <- (Rho + t(Rho))/2
-  diag(Rho) <- 1
-  write.table(round(Rho,3), file.path(outdir, "Rho_old.tbl"))
-  
-  # 4. Force PD (small shrink only)
-  Rho <- as.matrix(Matrix::nearPD(Rho, corr = TRUE)$mat)
-  
-  # 5. Create covariance with arbitrary SDs
-  sigma <- rexp(n, rate)
-    print("Sigma:")
-    print(sigma)
-  Sigma <- diag(sigma) %*% Rho %*% diag(sigma)
-  
-  return(list(Rho = Rho, Sigma = Sigma))
-}
-
-
 simulate_covariance3 <- function(n=5, rate = 1, exponent = 4) {
   # Step 1: Generate random orthogonal basis (once)
   Q <- qr.Q(qr(matrix(rnorm(n^2), n)))
@@ -311,7 +232,6 @@ simulate_covariance3 <- function(n=5, rate = 1, exponent = 4) {
 }
 
 
-
 # XQ
 # bnum: bac taxonomic unit # in the microbiota
 # tnum: tip (host) species
@@ -326,7 +246,8 @@ do_sim <- function(tnum, bnum, lambda, mu, rho, age, exponent){
     #abundance <- matrix(0, nrow = tnum, ncol = nsim); 
 
     # generate matrix R (randomly)
-    scale_R <- 1/distRoot(tree)[1]
+    #scale_R <- 1/distRoot(tree)[1]
+    scale_R <- 1/get_all_distances_to_root(tree)[1]
     # XQ, R controls sigma in mvSIM() (covariance matrix)
     #R <- crossprod(matrix(runif(bnum*bnum),bnum)) * scale_R
     #sim_cov_res <- simulate_covariance2(bnum, rate=1/scale_R, weak_range=c(-0.01,0.01), strong_range=c(0.8,1), split_quantile=0.2)
@@ -586,6 +507,13 @@ do_transformation <- function(transform, C, log_prop_geomean){
 
 
 ##################################
+get_grp_info <- function(grp_infile){
+    grp_info <- read.table(grp_infile, fill = TRUE, stringsAsFactors = FALSE)
+    return(grp_info)
+}
+
+
+##################################
 # some params to change, XQ
 lambda <- 5
 mu <- 5
@@ -617,6 +545,8 @@ is_standardize <- FALSE
 outdir <- NULL
 is_force <- FALSE
 
+grp_info <- NULL
+
 
 ##################################
 spec = matrix(c(
@@ -630,6 +560,7 @@ spec = matrix(c(
     'sim', 's', 0, "logical",
     'check', 'c', 2, "character",
     'filter_P', 'p', 2, "double",
+    'grp', 'g', 2, 'character',
 
     'exponent', 'e', 2, "double",
     'tnum', 'T', 2, "integer",
@@ -733,6 +664,10 @@ if(! is.null(opt$dist)){
 
 if(! is.null(opt$standardize)){
     is_standardize <- TRUE
+}
+
+if(! is.null(opt$grp)){
+    grp_info <- get_grp_info(opt$grp)
 }
 
 if(! is.null(opt$force)){
@@ -839,9 +774,17 @@ pdf(outfile)
 #rownames(P) <- rownames(log_prop_geomean)
 # normal pcoa, not phylo corrected
 if(!is_sim){
-    above_names <- c()
+    if (! is.null(grp_info)){
+        grp_list <- list(group1=list('labels'=grp_info[,1],'col'='orange'), group2=list('labels'=grp_info[,2],'col'='blue'))
+    } else{
+        above_names <- c()
+    }
+} else{
+    grp_list <- list(
+        group1=list('labels'=above_names, 'col'='orange'), 
+        group2=list('labels'=setdiff(tree$tip.label,above_names),'col'='blue')
+    )
 }
-grp_list <- list(group1=list('labels'=above_names, 'col'='orange'), group2=list('labels'=setdiff(tree$tip.label,above_names),'col'='blue'))
 
 # BC
 pcoa_0 <- calculate_pcoa(prop, 'bray', is_standardize, grp_list)
@@ -907,7 +850,7 @@ calculate_correl_with_Rho(Rho, pcoas, file.path(compare_outdir, "compared_to_R_m
 
 
 ##################################
-files <- list.files("haha/compare/", full.names = TRUE)
+files <- list.files(file.path(outdir, "compare/"), full.names = TRUE)
 for (f in files) {
     cat(f,"\n")
     cat(readLines(f), sep = "\n")

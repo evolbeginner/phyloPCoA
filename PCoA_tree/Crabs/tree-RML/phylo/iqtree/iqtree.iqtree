@@ -1,0 +1,293 @@
+IQ-TREE 3.0.1 built May  5 2025
+
+Input file name: tree-RML/combined.aln
+Type of analysis: tree reconstruction + ultrafast bootstrap (1000 replicates)
+Random seed number: 285451
+
+REFERENCES
+----------
+
+To cite IQ-TREE 3 please use:
+
+Thomas K.F. Wong, Nhan Ly-Trong, Huaiyan Ren, Hector Banos, Andrew J. Roger,
+Edward Susko, Chris Bielow, Nicola De Maio, Nick Goldman, Matthew W. Hahn,
+Gavin Huttley, Robert Lanfear, Bui Quang Minh (2025)
+IQ-TREE 3: Phylogenomic Inference Software using Complex Evolutionary Models.
+Submitted.
+
+Please also cite the following paper(s) for the feature(s) that you used:
+
+Since you used site-specific frequency model please also cite: 
+
+Huai-Chun Wang, Edward Susko, Bui Quang Minh, and Andrew J. Roger (2018)
+Modeling site heterogeneity with posterior mean site frequency profiles
+accelerates accurate phylogenomic estimation. Syst. Biol., 67:216–235.
+https://doi.org/10.1093/sysbio/syx068
+
+Since you used ultrafast bootstrap (UFBoot) please also cite: 
+
+Diep Thi Hoang, Olga Chernomor, Arndt von Haeseler, Bui Quang Minh,
+and Le Sy Vinh (2018) UFBoot2: Improving the ultrafast bootstrap
+approximation. Mol. Biol. Evol., 35:518–522.
+https://doi.org/10.1093/molbev/msx281
+
+SEQUENCE ALIGNMENT
+------------------
+
+Input data: 43 sequences with 1196 amino-acid sites
+Number of constant sites: 905 (= 75.6689% of all sites)
+Number of invariant (constant or ambiguous constant) sites: 905 (= 75.6689% of all sites)
+Number of parsimony informative sites: 79
+Number of distinct site patterns: 438
+
+SUBSTITUTION PROCESS
+--------------------
+
+Model of substitution: LG+SSF+F+G4
+
+State frequencies: (site specific frequencies)
+
+Model of rate heterogeneity: Gamma with 4 categories
+Gamma shape alpha: 0.2799
+
+ Category  Relative_rate  Proportion
+  1         0.0038         0.2500
+  2         0.0890         0.2500
+  3         0.5604         0.2500
+  4         3.3469         0.2500
+Relative rates are computed as MEAN of the portion of the Gamma distribution falling in the category.
+
+MAXIMUM LIKELIHOOD TREE
+-----------------------
+
+Log-likelihood of the tree: -5172.8476 (s.e. 170.6194)
+Unconstrained log-likelihood (without tree): -6701.0615
+Number of free parameters (#branches + #model parameters): 103
+Akaike information criterion (AIC) score: 10551.6952
+Corrected Akaike information criterion (AICc) score: 10571.3142
+Bayesian information criterion (BIC) score: 11075.6292
+
+Total tree length (sum of branch lengths): 0.4933
+Sum of internal branch lengths: 0.0947 (19.2052% of tree length)
+
+WARNING: 13 near-zero internal branches (<0.0008) should be treated with caution
+         Such branches are denoted by '**' in the figure below
+
+NOTE: Tree is UNROOTED although outgroup taxon 'Scylla_paramamosain' is drawn at root
+Numbers in parentheses are  ultrafast bootstrap support (%)
+
++--Scylla_paramamosain
+|
+|  +--Thalamita_crenata
++--| (99)
+|  +--Thalamita_danae
+|
+|                  +-------------------------------------------------Metopograpsus_frontalis
+|               +**| (38)
+|               |  |           +--Metopograpsus_quadridentatus
+|               |  |        +--| (42)
+|               |  |        |  +------Mictyris_brevidactylus
+|               |  |     +--| (38)
+|               |  |     |  |                       +--Chiromantes_haematocheir
+|               |  |     |  |                    +--| (95)
+|               |  |     |  |                    |  |  +--Orisarma_dehaani
+|               |  |     |  |                    |  +--| (96)
+|               |  |     |  |                    |     |  +**Orisarma_patshuni
+|               |  |     |  |                    |     +**| (59)
+|               |  |     |  |                    |        +**Orisarma_sinense
+|               |  |     |  |                 +--| (68)
+|               |  |     |  |                 |  +--Parasesarma_pictum
+|               |  |     |  |              +**| (21)
+|               |  |     |  |              |  |     +**Neosarmatium_indicum
+|               |  |     |  |              |  |  +**| (30)
+|               |  |     |  |              |  |  |  +**Neosarmatium_smithi
+|               |  |     |  |              |  +**| (27)
+|               |  |     |  |              |     +--Sarmatium_germaini
+|               |  |     |  |           +**| (10)
+|               |  |     |  |           |  |  +**Episesarma_chentongense
+|               |  |     |  |           |  +**| (99)
+|               |  |     |  |           |     +**Episesarma_singaporense
+|               |  |     |  |        +**| (23)
+|               |  |     |  |        |  +--Lithoselatium_kusu
+|               |  |     |  |     +--| (34)
+|               |  |     |  |     |  |     +--Parasesarma_bidens
+|               |  |     |  |     |  |  +**| (71)
+|               |  |     |  |     |  |  |  +**Parasesarma_peninsulare
+|               |  |     |  |     |  +--| (70)
+|               |  |     |  |     |     +--Parasesarma_ungulatum
+|               |  |     |  |  +**| (37)
+|               |  |     |  |  |  +**Episesarma_mederi
+|               |  |     |  +--| (62)
+|               |  |     |     |  +**Episesarma_versicolor
+|               |  |     |     +**| (59)
+|               |  |     |        +--Selatium_brockii
+|               |  |  +**| (20)
+|               |  |  |  |  +**Parasesarma_affine
+|               |  |  |  +--| (70)
+|               |  |  |     |  +**Ilyoplax_formosensis
+|               |  |  |     +--| (91)
+|               |  |  |        |  +--Ilyoplax_ningpoensis
+|               |  |  |        +**| (37)
+|               |  |  |           |  +--Scopimera_intermedia
+|               |  |  |           +--| (99)
+|               |  |  |              +--Tmethypocoelis_ceratophora
+|               |  +--| (48)
+|               |     +---------------------------------------------Parasesarma_eumolpe
+|            +--| (49)
+|            |  +--Macrophthalmus_tomentosus
+|         +--| (87)
+|         |  |           +--Chasmagnathus_convexus
+|         |  |        +--| (85)
+|         |  |        |  |  +--Hemigrapsus_penicillatus
+|         |  |        |  +--| (95)
+|         |  |        |     +--Hemigrapsus_takanoi
+|         |  |     +--| (72)
+|         |  |     |  |  +**Metaplax_tredecim
+|         |  |     |  +--| (80)
+|         |  |     |     +**Metaplax_longipes
+|         |  |  +--| (73)
+|         |  |  |  +--Macrophthalmus_banzai
+|         |  +--| (64)
+|         |     +--Macrophthalmus_convexus
+|      +--| (88)
+|      |  +--Macrophthalmus_definitus
++------| (100)
+       |        +--Austruca_lactea
+       |     +--| (63)
+       |     |  +--Tubuca_arcuata
+       |  +--| (85)
+       |  |  +**Paraleptuca_splendida
+       +--| (100)
+          |  +--Gelasimus_borealis
+          +--| (94)
+             +--Gelasimus_vocans
+
+Tree in newick format:
+
+(Scylla_paramamosain:0.0053997660,(Thalamita_crenata:0.0018264656,Thalamita_danae:0.0014650418)99:0.0057311754,(((((Metopograpsus_frontalis:0.1568664549,((((Metopograpsus_quadridentatus:0.0083666187,Mictyris_brevidactylus:0.0232147223)42:0.0024610730,((((((((Chiromantes_haematocheir:0.0009683297,(Orisarma_dehaani:0.0009912121,(Orisarma_patshuni:0.0000010000,Orisarma_sinense:0.0000010000)59:0.0000010000)96:0.0014417034)95:0.0028933607,Parasesarma_pictum:0.0020437044)68:0.0014302504,((Neosarmatium_indicum:0.0007624834,Neosarmatium_smithi:0.0000010000)30:0.0000020538,Sarmatium_germaini:0.0009800498)27:0.0000536688)21:0.0000027782,(Episesarma_chentongense:0.0000010000,Episesarma_singaporense:0.0000010000)99:0.0008152149)10:0.0000010000,Lithoselatium_kusu:0.0034962933)23:0.0000024256,((Parasesarma_bidens:0.0016498740,Parasesarma_peninsulare:0.0000023968)71:0.0008214967,Parasesarma_ungulatum:0.0008745285)70:0.0032882186)34:0.0008596638,Episesarma_mederi:0.0000010000)37:0.0000015485,(Episesarma_versicolor:0.0000010000,Selatium_brockii:0.0008531960)59:0.0008116985)62:0.0023499172)38:0.0019627190,(Parasesarma_affine:0.0000021002,(Ilyoplax_formosensis:0.0000010000,(Ilyoplax_ningpoensis:0.0043111394,(Scopimera_intermedia:0.0060386052,Tmethypocoelis_ceratophora:0.0050637970)99:0.0052475601)37:0.0000023740)91:0.0048740566)70:0.0040192612)20:0.0000020474,Parasesarma_eumolpe:0.1441893984)48:0.0017328015)38:0.0006102965,Macrophthalmus_tomentosus:0.0010603843)49:0.0010649932,((((Chasmagnathus_convexus:0.0035688960,(Hemigrapsus_penicillatus:0.0016933937,Hemigrapsus_takanoi:0.0022987355)95:0.0031964515)85:0.0019800036,(Metaplax_tredecim:0.0000020306,Metaplax_longipes:0.0000010000)80:0.0021108936)72:0.0015761810,Macrophthalmus_banzai:0.0019482709)73:0.0034400981,Macrophthalmus_convexus:0.0010484607)64:0.0016979199)87:0.0021135604,Macrophthalmus_definitus:0.0009700757)88:0.0021406888,(((Austruca_lactea:0.0072357452,Tubuca_arcuata:0.0032906510)63:0.0009778793,Paraleptuca_splendida:0.0000010000)85:0.0019222941,(Gelasimus_borealis:0.0008791207,Gelasimus_vocans:0.0022566205)94:0.0011221260)100:0.0110517779)100:0.0218535577);
+
+CONSENSUS TREE
+--------------
+
+Consensus tree is constructed from 1000 bootstrap trees
+Log-likelihood of consensus tree: -5172.873649
+Robinson-Foulds distance between ML tree and consensus tree: 6
+
+Branches with support >0.000000% are kept (extended consensus)
+Branch lengths are optimized by maximum likelihood on original alignment
+Numbers in parentheses are bootstrap supports (%)
+
++--Scylla_paramamosain
+|
+|  +--Thalamita_crenata
++--| (99)
+|  +--Thalamita_danae
+|
+|                  +-------------------------------------------------Metopograpsus_frontalis
+|               +--| (38)
+|               |  |        +--Metopograpsus_quadridentatus
+|               |  |     +--| (42)
+|               |  |     |  +------Mictyris_brevidactylus
+|               |  |  +--| (38)
+|               |  |  |  |                    +--Chiromantes_haematocheir
+|               |  |  |  |                 +--| (95)
+|               |  |  |  |                 |  |  +--Orisarma_dehaani
+|               |  |  |  |                 |  +--| (96)
+|               |  |  |  |                 |     |  +--Orisarma_patshuni
+|               |  |  |  |                 |     +--| (59)
+|               |  |  |  |                 |        +--Orisarma_sinense
+|               |  |  |  |              +--| (68)
+|               |  |  |  |              |  +--Parasesarma_pictum
+|               |  |  |  |           +--| (21)
+|               |  |  |  |           |  |     +--Neosarmatium_indicum
+|               |  |  |  |           |  |  +--| (30)
+|               |  |  |  |           |  |  |  +--Neosarmatium_smithi
+|               |  |  |  |           |  +**| (27)
+|               |  |  |  |           |     +--Sarmatium_germaini
+|               |  |  |  |        +--| (23)
+|               |  |  |  |        |  |     +--Episesarma_chentongense
+|               |  |  |  |        |  |  +--| (99)
+|               |  |  |  |        |  |  |  +--Episesarma_singaporense
+|               |  |  |  |        |  +--| (32)
+|               |  |  |  |        |     +--Lithoselatium_kusu
+|               |  |  |  |     +--| (34)
+|               |  |  |  |     |  |     +--Parasesarma_bidens
+|               |  |  |  |     |  |  +--| (71)
+|               |  |  |  |     |  |  |  +--Parasesarma_peninsulare
+|               |  |  |  |     |  +--| (70)
+|               |  |  |  |     |     +--Parasesarma_ungulatum
+|               |  |  |  |  +--| (37)
+|               |  |  |  |  |  +--Episesarma_mederi
+|               |  |  |  +--| (62)
+|               |  |  |     |  +--Episesarma_versicolor
+|               |  |  |     +--| (59)
+|               |  |  |        +--Selatium_brockii
+|               |  +--| (48)
+|               |     |     +--Parasesarma_affine
+|               |     |  +--| (70)
+|               |     |  |  |     +--Ilyoplax_formosensis
+|               |     |  |  |  +--| (59)
+|               |     |  |  |  |  +--Ilyoplax_ningpoensis
+|               |     |  |  +--| (91)
+|               |     |  |     |  +--Scopimera_intermedia
+|               |     |  |     +--| (99)
+|               |     |  |        +--Tmethypocoelis_ceratophora
+|               |     +--| (22)
+|               |        +---------------------------------------------Parasesarma_eumolpe
+|            +--| (49)
+|            |  +--Macrophthalmus_tomentosus
+|         +--| (87)
+|         |  |           +--Chasmagnathus_convexus
+|         |  |        +--| (85)
+|         |  |        |  |  +--Hemigrapsus_penicillatus
+|         |  |        |  +--| (95)
+|         |  |        |     +--Hemigrapsus_takanoi
+|         |  |     +--| (72)
+|         |  |     |  |  +--Metaplax_tredecim
+|         |  |     |  +--| (80)
+|         |  |     |     +--Metaplax_longipes
+|         |  |  +--| (73)
+|         |  |  |  +--Macrophthalmus_banzai
+|         |  +--| (64)
+|         |     +--Macrophthalmus_convexus
+|      +--| (88)
+|      |  +--Macrophthalmus_definitus
++------| (100)
+       |        +--Austruca_lactea
+       |     +--| (63)
+       |     |  +--Tubuca_arcuata
+       |  +--| (85)
+       |  |  +--Paraleptuca_splendida
+       +--| (100)
+          |  +--Gelasimus_borealis
+          +--| (94)
+             +--Gelasimus_vocans
+
+
+Consensus tree in newick format: 
+
+(Scylla_paramamosain:0.0053997356,(Thalamita_crenata:0.0018270786,Thalamita_danae:0.0014648991)99:0.0057313000,(((((Metopograpsus_frontalis:0.1568825607,(((Metopograpsus_quadridentatus:0.0083665687,Mictyris_brevidactylus:0.0232165762)42:0.0024588459,(((((((Chiromantes_haematocheir:0.0009686377,(Orisarma_dehaani:0.0009918456,(Orisarma_patshuni:0.0000022318,Orisarma_sinense:0.0000026344)59:0.0000022318)96:0.0014410510)95:0.0028938426,Parasesarma_pictum:0.0020433685)68:0.0014298710,((Neosarmatium_indicum:0.0008144795,Neosarmatium_smithi:0.0000026344)30:0.0000021586,Sarmatium_germaini:0.0009806388)27:0.0000015757)21:0.0000026344,((Episesarma_chentongense:0.0000026344,Episesarma_singaporense:0.0000026344)99:0.0008157202,Lithoselatium_kusu:0.0034967794)32:0.0000026344)23:0.0000026344,((Parasesarma_bidens:0.0016503345,Parasesarma_peninsulare:0.0007983467)71:0.0000176952,Parasesarma_ungulatum:0.0008778938)70:0.0032855101)34:0.0000232051,Episesarma_mederi:0.0000026344)37:0.0008378239,(Episesarma_versicolor:0.0000026344,Selatium_brockii:0.0008534119)59:0.0008122328)62:0.0023528416)38:0.0019638097,((Parasesarma_affine:0.0000026344,((Ilyoplax_formosensis:0.0000026344,Ilyoplax_ningpoensis:0.0043102777)59:0.0000022396,(Scopimera_intermedia:0.0060390550,Tmethypocoelis_ceratophora:0.0050646781)99:0.0052478028)91:0.0048798236)70:0.0040151118,Parasesarma_eumolpe:0.1442005321)22:0.0000023264)48:0.0017220924)38:0.0006138723,Macrophthalmus_tomentosus:0.0010603453)49:0.0010657169,((((Chasmagnathus_convexus:0.0035700839,(Hemigrapsus_penicillatus:0.0016939990,Hemigrapsus_takanoi:0.0022993648)95:0.0031964863)85:0.0019810450,(Metaplax_tredecim:0.0000026344,Metaplax_longipes:0.0000026344)80:0.0021109936)72:0.0015770271,Macrophthalmus_banzai:0.0019484551)73:0.0034404588,Macrophthalmus_convexus:0.0010494402)64:0.0016982508)87:0.0021132733,Macrophthalmus_definitus:0.0009699578)88:0.0021400039,(((Austruca_lactea:0.0072365949,Tubuca_arcuata:0.0032912266)63:0.0009773194,Paraleptuca_splendida:0.0000026344)85:0.0019213670,(Gelasimus_borealis:0.0008796918,Gelasimus_vocans:0.0022564142)94:0.0011227651)100:0.0110502625)100:0.0218563443);
+
+ALISIM COMMAND
+--------------
+To simulate an alignment of the same length as the original alignment, using the tree and model parameters estimated from this analysis, you can use the following command:
+
+--alisim simulated_MSA -t tree-RML/phylo/iqtree/iqtree.treefile -m "LG+SSF{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}+F{0.0868283,0.0433221,0.0449342,0.0569566,0.0163293,0.033004,0.0669753,0.0841797,0.0178724,0.050646,0.0801723,0.0631521,0.0276607,0.0406734,0.0441742,0.0672747,0.0605956,0.00928166,0.0319906,0.0739768}+G4{0.279865}" --length 1196
+
+To mimic the alignment used to produce this analysis, i.e. simulate an alignment of the same length as the original alignment, using the tree and model parameters estimated from this analysis *and* copying the same gap positions as the original alignment, you can use the following command:
+
+iqtree -s tree-RML/combined.aln --alisim mimicked_MSA
+
+To simulate any number of alignments in either of the two commandlines above, use the --num-alignments options, for example mimic 100 alignments you would use the command line:
+
+iqtree -s tree-RML/combined.aln --alisim mimicked_MSA --num-alignments 100
+
+For more information on using AliSim, please visit: www.iqtree.org/doc/AliSim
+
+TIME STAMP
+----------
+
+Date and time: Sat Jan 31 12:44:07 2026
+Total CPU time used: 6528.649175 seconds (1h:48m:48s)
+Total wall-clock time used: 133.2099954 seconds (0h:2m:13s)
+

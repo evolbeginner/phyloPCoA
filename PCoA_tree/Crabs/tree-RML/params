@@ -1,0 +1,1 @@
+--seq_indir pep --outdir tree-RML --cpu 50 --force --iqtree --trim RML --pmsf LG+C60+G

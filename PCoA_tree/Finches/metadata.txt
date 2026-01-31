@@ -1,0 +1,10 @@
+sample_id	species
+1	SGF	Geospiza_fuliginosa
+2	MGF	Geospiza_fortis
+3	LGF	Geospiza_magnirostris
+4	CF	Geospiza_scandens
+5	STF	Camarhynchus_parvulus
+6	LTF	Camarhynchus_psittacula
+7	WPF	Camarhynchus_pallidus
+8	VF	Platyspiza_crassirostris
+9	WF	Certhidea_olivacea

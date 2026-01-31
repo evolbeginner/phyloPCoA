@@ -1,0 +1,9 @@
+SGF	Geospiza fuliginosa
+MGF	Geospiza fortis
+LGF	Geospiza magnirostris
+CF	Geospiza scandens
+STF	Camarhynchus parvulus
+LTF	Camarhynchus psittacula
+WPF	Camarhynchus pallidus
+VF	Platyspiza crassirostris
+WF	Certhidea olivacea
