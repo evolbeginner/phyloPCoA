@@ -3,11 +3,13 @@
 # all rights reserved
 # Sishuo's idea on accounting phylogeny for proportion data
 
-# v0.9.9
+# v0.10.0
 
 
 ###############################################################
 # Update history
+# 2026-02-02
+#   able to read more than one states of traits by '-g grp_file -t trait'
 # 2026-01-31
 #   get_grp_info()
 # 2025-11-04
@@ -512,6 +514,41 @@ get_grp_info <- function(grp_infile){
     return(grp_info)
 }
 
+get_grp_info <- function(grp_infile){
+    df <- read.table(grp_infile, stringsAsFactors = FALSE, header=T)
+}
+
+
+make_grp_list <- function(df, trait_col, colors = NULL) {
+  if (!is.data.frame(df)) {
+    stop("df must be a data.frame")
+  }
+  if (is.null(rownames(df))) {
+    stop("Row names are required and will be used as labels")
+  }
+  if (!trait_col %in% colnames(df)) {
+    stop("Trait column not found: ", trait_col)
+  }
+
+  labels <- rownames(df)
+  traits <- df[[trait_col]]
+  split_groups <- split(labels, traits, drop = TRUE)
+
+  if (is.null(colors)) {
+    colors <- grDevices::rainbow(length(split_groups))
+  }
+
+  grp_list <- Map(
+    function(lbls, col) {
+      list(labels = lbls, col = col)
+    },
+    split_groups,
+    colors
+  )
+
+  return(grp_list)
+}
+
 
 ##################################
 # some params to change, XQ
@@ -560,7 +597,9 @@ spec = matrix(c(
     'sim', 's', 0, "logical",
     'check', 'c', 2, "character",
     'filter_P', 'p', 2, "double",
+
     'grp', 'g', 2, 'character',
+    'feature', 'f', 2, 'character',
 
     'exponent', 'e', 2, "double",
     'tnum', 'T', 2, "integer",
@@ -571,7 +610,7 @@ spec = matrix(c(
     'standardize', 'S', 0, "logical",
     'help' , 'h', 0, "logical",
     'outdir', 'o', 1, "character",
-    'force', 'f', 0, 'logical'
+    'force', 'NA', 0, 'logical'
 ), byrow=TRUE, ncol=4)
 
 opt <- getopt(spec)
@@ -668,6 +707,9 @@ if(! is.null(opt$standardize)){
 
 if(! is.null(opt$grp)){
     grp_info <- get_grp_info(opt$grp)
+}
+if(! is.null(opt$feature)){
+    feature <- opt$feature
 }
 
 if(! is.null(opt$force)){
@@ -775,7 +817,8 @@ pdf(outfile)
 # normal pcoa, not phylo corrected
 if(!is_sim){
     if (! is.null(grp_info)){
-        grp_list <- list(group1=list('labels'=grp_info[,1],'col'='orange'), group2=list('labels'=grp_info[,2],'col'='blue'))
+        grp_list <- make_grp_list(grp_info, feature)
+        #grp_list <- list(group1=list('labels'=grp_info[,1],'col'='orange'), group2=list('labels'=grp_info[,2],'col'='blue'))
     } else{
         above_names <- c()
     }
@@ -827,9 +870,9 @@ for (i in seq_along(pcoas)){
     if(i == 1){
         write(title, file=determined_by_trait_outfile, sep="\t")
     }
-    if(is_sim){
+    #if(is_sim){
         check_clustering(pcoa, pcoa_name=pcoa_name, grp_list=grp_list, outfile=determined_by_trait_outfile)
-    }
+    #}
     # grp_by_phylo
     determined_by_phylo_outfile <- file.path(compare_outdir, "determined_by_phylo.tbl")
     if(i == 1){
