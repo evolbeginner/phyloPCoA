@@ -3,13 +3,11 @@
 # all rights reserved
 # Sishuo's idea on accounting phylogeny for proportion data
 
-# v0.10.1
+# v0.9.9
 
 
 ###############################################################
 # Update history
-# 2026-02-02
-#   able to read more than one states of traits by '-g grp_file -t trait'
 # 2026-01-31
 #   get_grp_info()
 # 2025-11-04
@@ -144,7 +142,7 @@ fisher_ratio <- function(coords, group) {
 
 
 generate_metadata <- function(metadata_file){
-    metadata <- read.table(metadata_file, header = TRUE, comment.char = "")
+    metadata <- read.table(metadata_file, header = T)
     # Randomly select one sample_id for each species
     selected_samples <- metadata %>%
         group_by(species) %>%
@@ -184,7 +182,7 @@ davies_bouldin <- function(coords, group) {
 
 
 generate_metadata2 <- function(metadata_file, abundance){
-    metadata <- read.table(metadata_file, header = TRUE, comment.char = "")
+    metadata <- read.table(metadata_file, header = T)
     abundance$taxon <- rownames(abundance)
     rownames(abundance) <- NULL
     abundance_long <- abundance %>%
@@ -348,110 +346,76 @@ get_phylo_groups <- function(tree){
 
 
 ######################################
-create_single_plot <- function(matrix,
-                               method = "bray",
-                               color = "black",
-                               title = "PCoA Plot",
-                               group_samples = NULL,
-                               outlier_k = 0) {
-  ## ---- checks ----
-  if (!is.matrix(matrix) && !is.data.frame(matrix)) {
+create_single_plot <- function(matrix, method = "bray", color = "black", title = "PCoA Plot", group_samples = NULL){
+  # Check input type
+	if (!is.matrix(matrix) && !is.data.frame(matrix)) {
     stop("Input must be a matrix or data.frame.")
   }
-
-  ## ---- PCoA ----
-  diss <- vegan::vegdist(matrix, method = method)
-  pts  <- cmdscale(diss, k = 2, eig = TRUE)
-
-  coords <- as.data.frame(pts$points)
-  colnames(coords) <- c("PC1", "PC2")
-  coords$Sample <- rownames(matrix)
-  coords$Color  <- color
-
-  ## ---- % variance explained ----
-  eigvals <- pts$eig
-  prop_explained <- eigvals / sum(eigvals)
-  pc1_lab <- paste0("PC1 (", round(prop_explained[1] * 100, 1), "%)")
-  pc2_lab <- paste0("PC2 (", round(prop_explained[2] * 100, 1), "%)")
-
-  ## ---- group colors ----
-  if (!is.null(group_samples) && is.list(group_samples)) {
-    for (grp in group_samples) {
-      coords$Color[coords$Sample %in% grp$labels] <- grp$col
+  
+  # Compute distance
+	diss <- vegan::vegdist(matrix, method = method)
+  
+  # Perform PCoA (cmdscale)
+	pts <- cmdscale(diss, k = 2, eig = TRUE)
+  
+  # Extract coordinates correctly
+	coords <- as.data.frame(pts$points)
+	if (ncol(coords) < 2) {
+        stop("PCoA returned less than two dimensions — check your input data.")
     }
-  }
-
-  ## ---- detect outliers in PCoA space ----
-  centroid <- colMeans(coords[, c("PC1", "PC2")])
-  coords$dist <- sqrt(
-    (coords$PC1 - centroid["PC1"])^2 +
-    (coords$PC2 - centroid["PC2"])^2
-  )
-
-  thr <- quantile(coords$dist, 0.75) +
-         outlier_k * IQR(coords$dist)
-
-  coords$outlier <- coords$dist > thr
-
-  ## ---- plot limits based on non-outliers ----
-  xrange <- range(coords$PC1[!coords$outlier])
-  yrange <- range(coords$PC2[!coords$outlier])
-
-  ## ---- main plot (outliers removed) ----
-  plot(coords$PC1[!coords$outlier],
-       coords$PC2[!coords$outlier],
-       pch = 19,
-       col = coords$Color[!coords$outlier],
-       xlab = pc1_lab,
-       ylab = pc2_lab,
-       main = title,
-       asp = 1,
-       xlim = xrange * 1.2,
-       ylim = yrange * 1.2)
-
-  ## ---- sample labels (non-outliers only) ----
-  cex_of_host <- 0.8 * 10 / nrow(matrix)
-  text(coords$PC1[!coords$outlier],
-       coords$PC2[!coords$outlier],
-       labels = coords$Sample[!coords$outlier],
+	colnames(coords) <- c("PC1", "PC2")
+	coords$Sample <- rownames(matrix)
+	coords$Color <- color  # default color
+  
+    # Apply group colors if provided
+    if (!is.null(group_samples) && is.list(group_samples)) {
+        for (grp in group_samples) {
+            if (!is.null(grp$labels) && !is.null(grp$col)) {
+                coords$Color[coords$Sample %in% grp$labels] <- grp$col
+            }
+        }
+    }
+  
+    # ---- Plot ----
+    xrange <- range(coords$PC1)
+    yrange <- range(coords$PC2)
+	plot(coords$PC1, coords$PC2,
+        pch = 19,
+        col = coords$Color,
+        xlab = "PC1",
+        ylab = "PC2",
+        main = title,
+        asp = 1,
+        xlim = xrange*1.3,
+        ylim = yrange*1.3
+    )
+  
+  # Add sample labels
+	text(coords$PC1, coords$PC2,
+       labels = coords$Sample,
        pos = 4,
-       cex = cex_of_host)
-
-  ## ---- optional: show outliers ----
-  if (any(coords$outlier)) {
-    points(coords$PC1[coords$outlier],
-           coords$PC2[coords$outlier],
-           pch = 4,
-           col = "red",
-           lwd = 2)
-  }
-
-  ## ---- group ellipses (non-outliers only) ----
-  if (!is.null(group_samples)) {
-    for (grp in group_samples) {
-      sel <- coords$Sample %in% grp$labels & !coords$outlier
-      if (sum(sel) >= 3) {
-        vegan::ordiellipse(coords[sel, c("PC1", "PC2")],
-                           rep(1, sum(sel)),
-                           kind = "sd",
-                           conf = 0.95,
-                           draw = "polygon",
-                           lwd = 1.2,
-                           col = grp$col)
-      }
+       cex = 0.8)
+  
+    if (!is.null(group_samples)) {
+        for (grp in group_samples) {
+            sel <- coords$Sample %in% grp$labels
+            if (sum(sel) >= 3) { # needs >=3 to compute ellipse
+                vegan::ordiellipse(coords[sel, c("PC1","PC2")],
+                    rep(1, sum(sel)),
+                    kind = 'sd', conf = 0.95, draw = 'polygon',
+                    lwd = 1.2, col = grp$col,
+                )
+            }
+        }
     }
-  }
-
-  ## ---- return info for reproducibility ----
-  invisible(coords)
 }
 
 
-plot_graphs <- function(m1, m2, m3, outfile, grp_list, outlier_k) {
+plot_graphs <- function(m1, m2, m3, outfile, grp_list) {
     par(mfrow = c(2, 2))
-    create_single_plot(m1, method = "bray", "green", title = "PCoA BC-distance", group_samples = grp_list, outlier_k)
-    create_single_plot(m2, method = "euclidean", "cyan", title = "PCoA: Euclidean (CLR, standard)", group_samples = grp_list, outlier_k)
-    create_single_plot(m3, method = "euclidean", "red", title = "PCoA: Euclidean \n(CLR, phylo decorrelated)", group_samples = grp_list, outlier_k)
+    create_single_plot(m1, method = "bray", "green", title = "PCoA BC-distance", group_samples = grp_list)
+    create_single_plot(m2, method = "euclidean", "cyan", title = "PCoA: Euclidean (CLR, standard)", group_samples = grp_list)
+    create_single_plot(m3, method = "euclidean", "red", title = "PCoA: Euclidean \n(CLR, phylo decorrelated)", group_samples = grp_list)
 
     tip_colors <- rep(NA, length(tree$tip.label))
     #tip_colors <- ifelse(tree$tip.label %in% above_names, "orange", "blue")
@@ -544,43 +508,8 @@ do_transformation <- function(transform, C, log_prop_geomean){
 
 ##################################
 get_grp_info <- function(grp_infile){
-    grp_info <- read.table(grp_infile, fill = TRUE, stringsAsFactors = FALSE, comment.char = "")
+    grp_info <- read.table(grp_infile, fill = TRUE, stringsAsFactors = FALSE)
     return(grp_info)
-}
-
-get_grp_info <- function(grp_infile){
-    df <- read.table(grp_infile, stringsAsFactors = FALSE, header=TRUE, comment.char = "")
-}
-
-
-make_grp_list <- function(df, trait_col, colors = NULL) {
-  if (!is.data.frame(df)) {
-    stop("df must be a data.frame")
-  }
-  if (is.null(rownames(df))) {
-    stop("Row names are required and will be used as labels")
-  }
-  if (!trait_col %in% colnames(df)) {
-    stop("Trait column not found: ", trait_col)
-  }
-
-  labels <- rownames(df)
-  traits <- df[[trait_col]]
-  split_groups <- split(labels, traits, drop = TRUE)
-
-  if (is.null(colors)) {
-    colors <- grDevices::rainbow(length(split_groups))
-  }
-
-  grp_list <- Map(
-    function(lbls, col) {
-      list(labels = lbls, col = col)
-    },
-    split_groups,
-    colors
-  )
-
-  return(grp_list)
 }
 
 
@@ -612,7 +541,6 @@ bnum <- 8
 transform <- 'garland'
 dist_method <- 'euclidean'
 is_standardize <- FALSE
-outlier_k <- 100
 
 outdir <- NULL
 is_force <- FALSE
@@ -632,9 +560,7 @@ spec = matrix(c(
     'sim', 's', 0, "logical",
     'check', 'c', 2, "character",
     'filter_P', 'p', 2, "double",
-
     'grp', 'g', 2, 'character',
-    'feature', 'f', 2, 'character',
 
     'exponent', 'e', 2, "double",
     'tnum', 'T', 2, "integer",
@@ -643,11 +569,9 @@ spec = matrix(c(
     'dist', 'd', 2, 'character',
     'inter', 'i', 0, "logical",
     'standardize', 'S', 0, "logical",
-    'outlier', '', '2', 'double',
-
     'help' , 'h', 0, "logical",
     'outdir', 'o', 1, "character",
-    'force', 'NA', 0, 'logical'
+    'force', 'f', 0, 'logical'
 ), byrow=TRUE, ncol=4)
 
 opt <- getopt(spec)
@@ -681,7 +605,7 @@ if(! is.null(opt$tree)){
 }
 
 if(! is.null(opt$abundance)){
-    abundance <- read.table(opt$abundance, header=TRUE, comment.char = "")
+    abundance <- read.table(opt$abundance, header=T)
 }
 
 if (!is.null(opt$metadata)) {
@@ -742,15 +666,8 @@ if(! is.null(opt$standardize)){
     is_standardize <- TRUE
 }
 
-if (!is.null(opt$outlier)) {
-    outlier_k <- opt$outlier
-}
-
 if(! is.null(opt$grp)){
     grp_info <- get_grp_info(opt$grp)
-}
-if(! is.null(opt$feature)){
-    feature <- opt$feature
 }
 
 if(! is.null(opt$force)){
@@ -858,8 +775,7 @@ pdf(outfile)
 # normal pcoa, not phylo corrected
 if(!is_sim){
     if (! is.null(grp_info)){
-        grp_list <- make_grp_list(grp_info, feature)
-        #grp_list <- list(group1=list('labels'=grp_info[,1],'col'='orange'), group2=list('labels'=grp_info[,2],'col'='blue'))
+        grp_list <- list(group1=list('labels'=grp_info[,1],'col'='orange'), group2=list('labels'=grp_info[,2],'col'='blue'))
     } else{
         above_names <- c()
     }
@@ -877,14 +793,14 @@ pcoa_1 <- calculate_pcoa(log_prop_geomean, dist_method, is_standardize, grp_list
 # phylo corrected
 if(! is_inter){
     pcoa_2 <- calculate_pcoa(P, dist_method, is_standardize, grp_list)
-    plot_graphs(prop, log_prop_geomean, P, outfile, grp_list, outlier_k)
+    plot_graphs(prop, log_prop_geomean, P, outfile, grp_list)
 }
 
 
 ##################################
 # generate the groups that are determined by the two descendant lineages of the root
 grp_list_by_phylo <- get_phylo_groups(tree)
-plot_graphs(prop, log_prop_geomean, P, outfile, grp_list_by_phylo, outlier_k)
+plot_graphs(prop, log_prop_geomean, P, outfile, grp_list_by_phylo)
 
 
 ##################################
@@ -911,9 +827,9 @@ for (i in seq_along(pcoas)){
     if(i == 1){
         write(title, file=determined_by_trait_outfile, sep="\t")
     }
-    #if(is_sim){
+    if(is_sim){
         check_clustering(pcoa, pcoa_name=pcoa_name, grp_list=grp_list, outfile=determined_by_trait_outfile)
-    #}
+    }
     # grp_by_phylo
     determined_by_phylo_outfile <- file.path(compare_outdir, "determined_by_phylo.tbl")
     if(i == 1){
