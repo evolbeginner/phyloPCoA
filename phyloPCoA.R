@@ -392,6 +392,7 @@ create_single_plot <- function(matrix,
          outlier_k * IQR(coords$dist)
 
   coords$outlier <- coords$dist > thr
+    cat("Proportion of outliers:\t", sum(coords$outlier)/length(coords$Sample), "\n")
 
   ## ---- plot limits based on non-outliers ----
   xrange <- range(coords$PC1[!coords$outlier])
