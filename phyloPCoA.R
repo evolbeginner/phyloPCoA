@@ -144,7 +144,7 @@ fisher_ratio <- function(coords, group) {
 
 
 generate_metadata <- function(metadata_file){
-    metadata <- read.table(metadata_file, header = T)
+    metadata <- read.table(metadata_file, header = TRUE, comment.char = "")
     # Randomly select one sample_id for each species
     selected_samples <- metadata %>%
         group_by(species) %>%
@@ -184,7 +184,7 @@ davies_bouldin <- function(coords, group) {
 
 
 generate_metadata2 <- function(metadata_file, abundance){
-    metadata <- read.table(metadata_file, header = T)
+    metadata <- read.table(metadata_file, header = TRUE, comment.char = "")
     abundance$taxon <- rownames(abundance)
     rownames(abundance) <- NULL
     abundance_long <- abundance %>%
@@ -348,70 +348,67 @@ get_phylo_groups <- function(tree){
 
 
 ######################################
-create_single_plot <- function(matrix, method = "bray", color = "black", title = "PCoA Plot", group_samples = NULL){
-  # Check input type
-	if (!is.matrix(matrix) && !is.data.frame(matrix)) {
+create_single_plot <- function(matrix, method = "bray", color = "black",
+                               title = "PCoA Plot", group_samples = NULL){
+
+  if (!is.matrix(matrix) && !is.data.frame(matrix)) {
     stop("Input must be a matrix or data.frame.")
   }
-  
-  # Compute distance
-	diss <- vegan::vegdist(matrix, method = method)
-  
-  # Perform PCoA (cmdscale)
-	pts <- cmdscale(diss, k = 2, eig = TRUE)
-  
-  # Extract coordinates correctly
-	coords <- as.data.frame(pts$points)
-	if (ncol(coords) < 2) {
-        stop("PCoA returned less than two dimensions — check your input data.")
+
+  diss <- vegan::vegdist(matrix, method = method)
+  pts  <- cmdscale(diss, k = 2, eig = TRUE)
+
+  coords <- as.data.frame(pts$points)
+  colnames(coords) <- c("PC1", "PC2")
+  coords$Sample <- rownames(matrix)
+  coords$Color <- color
+
+  ## ---- % explained variance ----
+  eigvals <- pts$eig
+  prop_explained <- eigvals / sum(eigvals)
+  pc1_lab <- paste0("PC1 (", round(prop_explained[1] * 100, 1), "%)")
+  pc2_lab <- paste0("PC2 (", round(prop_explained[2] * 100, 1), "%)")
+
+  if (!is.null(group_samples) && is.list(group_samples)) {
+    for (grp in group_samples) {
+      coords$Color[coords$Sample %in% grp$labels] <- grp$col
     }
-	colnames(coords) <- c("PC1", "PC2")
-	coords$Sample <- rownames(matrix)
-	coords$Color <- color  # default color
-  
-    # Apply group colors if provided
-    if (!is.null(group_samples) && is.list(group_samples)) {
-        for (grp in group_samples) {
-            if (!is.null(grp$labels) && !is.null(grp$col)) {
-                coords$Color[coords$Sample %in% grp$labels] <- grp$col
-            }
-        }
-    }
-  
-    # ---- Plot ----
-    xrange <- range(coords$PC1)
-    yrange <- range(coords$PC2)
-	plot(coords$PC1, coords$PC2,
-        pch = 19,
-        col = coords$Color,
-        xlab = "PC1",
-        ylab = "PC2",
-        main = title,
-        asp = 1,
-        xlim = xrange*1.3,
-        ylim = yrange*1.3
-    )
-  
-  # Add sample labels
-	text(coords$PC1, coords$PC2,
+  }
+
+  xrange <- range(coords$PC1)
+  yrange <- range(coords$PC2)
+
+  plot(coords$PC1, coords$PC2,
+       pch = 19,
+       col = coords$Color,
+       xlab = pc1_lab,
+       ylab = pc2_lab,
+       main = title,
+       asp = 1,
+       xlim = xrange * 1.3,
+       ylim = yrange * 1.3
+  )
+
+  text(coords$PC1, coords$PC2,
        labels = coords$Sample,
        pos = 4,
        cex = 0.8)
-  
-    if (!is.null(group_samples)) {
-        for (grp in group_samples) {
-            sel <- coords$Sample %in% grp$labels
-            if (sum(sel) >= 3) { # needs >=3 to compute ellipse
-                vegan::ordiellipse(coords[sel, c("PC1","PC2")],
-                    rep(1, sum(sel)),
-                    kind = 'sd', conf = 0.95, draw = 'polygon',
-                    lwd = 1.2, col = grp$col,
-                )
-            }
-        }
-    }
-}
 
+  if (!is.null(group_samples)) {
+    for (grp in group_samples) {
+      sel <- coords$Sample %in% grp$labels
+      if (sum(sel) >= 3) {
+        vegan::ordiellipse(coords[sel, c("PC1","PC2")],
+                           rep(1, sum(sel)),
+                           kind = "sd",
+                           conf = 0.95,
+                           draw = "polygon",
+                           lwd = 1.2,
+                           col = grp$col)
+      }
+    }
+  }
+}
 
 plot_graphs <- function(m1, m2, m3, outfile, grp_list) {
     par(mfrow = c(2, 2))
@@ -510,12 +507,12 @@ do_transformation <- function(transform, C, log_prop_geomean){
 
 ##################################
 get_grp_info <- function(grp_infile){
-    grp_info <- read.table(grp_infile, fill = TRUE, stringsAsFactors = FALSE)
+    grp_info <- read.table(grp_infile, fill = TRUE, stringsAsFactors = FALSE, comment.char = "")
     return(grp_info)
 }
 
 get_grp_info <- function(grp_infile){
-    df <- read.table(grp_infile, stringsAsFactors = FALSE, header=T)
+    df <- read.table(grp_infile, stringsAsFactors = FALSE, header=TRUE, comment.char = "")
 }
 
 
@@ -644,7 +641,7 @@ if(! is.null(opt$tree)){
 }
 
 if(! is.null(opt$abundance)){
-    abundance <- read.table(opt$abundance, header=T)
+    abundance <- read.table(opt$abundance, header=TRUE, comment.char = "")
 }
 
 if (!is.null(opt$metadata)) {
