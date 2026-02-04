@@ -780,8 +780,15 @@ if(! is.null(opt$outdir)){
 ##################################
 if(! is_sim){
     common <- intersect(colnames(C), rownames(abundance))
-    tree <- drop.tip(tree, setdiff(tree$tip.label, common))
-    tree <- drop.tip(tree, species_exclude)
+    if(length(setdiff(tree$tip.label, common)) > 0){
+        print(colnames(C))
+        cat("\n")
+        print(rownames(abundance))
+        tree <- drop.tip(tree, setdiff(tree$tip.label, common))
+    }
+    if(length(species_exclude) > 0){
+        tree <- drop.tip(tree, species_exclude)
+    }
     C <- vcv(tree)
     #C <- C[, common, drop = FALSE]
     #C <- C[common, , drop = FALSE]
