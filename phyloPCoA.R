@@ -118,6 +118,7 @@ check_clustering <- function(pcoa_res, pcoa_name, grp_list, outfile){
     db_index <- davies_bouldin(coords, grp_factor)
 
     write(paste(pcoa_name, acc, fdr_value, db_index), file=outfile, append=TRUE, sep="\t")
+    #cat(pcoa_name, acc, fdr_value, db_index, "\n", file = outfile, append = TRUE, sep = "\t")
 }
 
 
@@ -927,12 +928,16 @@ for (i in seq_along(pcoas)){
     # grp_by_trait
     title <- paste("pcoa_name", "LDA_acc", "fdr_value", "DBI", sep="\t")
     determined_by_trait_outfile <- file.path(compare_outdir, "determined_by_trait.tbl")
-    write(title, file=determined_by_trait_outfile, sep="\t")
+    if(i == 1){
+        write(title, file=determined_by_trait_outfile, append=TRUE, sep="\t")
+    }
     check_clustering(pcoa, pcoa_name=pcoa_name, grp_list=grp_list, outfile=determined_by_trait_outfile)
 
     # grp_by_phylo
     determined_by_phylo_outfile <- file.path(compare_outdir, "determined_by_phylo.tbl")
-    write(title, file=determined_by_phylo_outfile, sep="\t")
+    if(i == 1){
+        write(title, file=determined_by_phylo_outfile, append=TRUE, sep="\t")
+    }
     check_clustering(pcoa, pcoa_name=pcoa_name, grp_list_by_phylo, outfile=determined_by_phylo_outfile)
 }
 
