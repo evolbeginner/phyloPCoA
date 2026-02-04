@@ -3,7 +3,7 @@
 # all rights reserved
 # Sishuo's idea on accounting phylogeny for proportion data
 
-# v0.10.1
+# v0.10.2
 
 
 ###############################################################
@@ -499,12 +499,13 @@ calculate_correl_with_Rho <- function(Rho, pcoas, outfile) {
 ##################################
 read_data <- function(C){
     # reorder
+    #abundance <- abundance[rownames(abundance) %in% colnames(C), , drop = FALSE]
     abundance <- abundance[match(colnames(C), rownames(abundance)), ]
     # delete all zero columns
     abundance <- abundance[, apply(abundance, 2, function(col) any(col != 0))]
     abundance <- abundance+1e-5 # to avoid abundance of zero
 
-    Z <- 1:length(tree$tip.label)
+    Z <- 1:nrow(C)
     abundance <- abundance[Z,]
     # phylo covariance matrix, vcv()
     C <- C[Z,Z]
@@ -544,13 +545,10 @@ do_transformation <- function(transform, C, log_prop_geomean){
 
 
 ##################################
-get_grp_info <- function(grp_infile){
+get_grp_info <- function(grp_infile, species_exclude){
     grp_info <- read.table(grp_infile, fill = TRUE, stringsAsFactors = FALSE, comment.char = "")
+    grp_info <- grp_info[! rownames(grp_info) %in% species_exclude, , drop = FALSE]
     return(grp_info)
-}
-
-get_grp_info <- function(grp_infile){
-    df <- read.table(grp_infile, stringsAsFactors = FALSE, header=TRUE, comment.char = "")
 }
 
 
@@ -614,6 +612,7 @@ transform <- 'garland'
 dist_method <- 'euclidean'
 is_standardize <- FALSE
 outlier_k <- 100
+species_exclude <- c()
 
 outdir <- NULL
 is_force <- FALSE
@@ -644,7 +643,8 @@ spec = matrix(c(
     'dist', 'd', 2, 'character',
     'inter', 'i', 0, "logical",
     'standardize', 'S', 0, "logical",
-    'outlier', '', '2', 'double',
+    'outlier', '', 2, 'double',
+    'species_exclude', '_', 2, 'character',
 
     'help' , 'h', 0, "logical",
     'outdir', 'o', 1, "character",
@@ -746,9 +746,12 @@ if(! is.null(opt$standardize)){
 if (!is.null(opt$outlier)) {
     outlier_k <- opt$outlier
 }
+if (!is.null(opt$species_exclude)) {
+    species_exclude <- as.vector(read.table(opt$species_exclude)[, 1])
+}
 
 if(! is.null(opt$grp)){
-    grp_info <- get_grp_info(opt$grp)
+    grp_info <- get_grp_info(opt$grp, species_exclude)
 }
 if(! is.null(opt$feature)){
     feature <- opt$feature
@@ -776,8 +779,16 @@ if(! is.null(opt$outdir)){
 #---------- start here ----------#
 ##################################
 if(! is_sim){
+    common <- intersect(colnames(C), rownames(abundance))
+    tree <- drop.tip(tree, setdiff(tree$tip.label, common))
+    tree <- drop.tip(tree, species_exclude)
+    C <- vcv(tree)
+    #C <- C[, common, drop = FALSE]
+    #C <- C[common, , drop = FALSE]
+    abundance <- abundance[common, , drop = FALSE]
     data_res <- read_data(C)
     prop <- data_res$prop
+    prop <- prop[, colMeans(prop)>0.01, drop=FALSE]
     abundance <- data_res$abundance
 } else{
     #col: bac taxa (bnum), row: host species (tnum)
@@ -840,13 +851,14 @@ rownames(P) <- rownames(C)
 
 
 rounded_to <- 3
+write.table(round(prop, rounded_to), file = file.path(outdir, 'prop.tbl'), sep = "\t", quote = FALSE, row.names=TRUE)
+write.table(round(log_prop, rounded_to), file = file.path(outdir, 'log_prop.tbl'), sep = "\t", quote = FALSE, row.names=TRUE)
+write.table(round(log_prop_geomean, rounded_to), file = file.path(outdir, 'log_prop_geomean.tbl'), sep = "\t", quote = FALSE, row.names=TRUE)
+write.table(round(P, rounded_to), file = file.path(outdir, 'P.tbl'), sep = "\t", quote = FALSE, row.names=TRUE)
+
 if(is_sim){
-write.table(round(prop, rounded_to), file = file.path(outdir, 'prop.tbl'), sep = "\t", quote = FALSE, row.names=FALSE)
-write.table(round(log_prop, rounded_to), file = file.path(outdir, 'log_prop.tbl'), sep = "\t", quote = FALSE, row.names=FALSE)
-write.table(round(log_prop_geomean, rounded_to), file = file.path(outdir, 'log_prop_geomean.tbl'), sep = "\t", quote = FALSE, row.names=FALSE)
-write.table(round(P, rounded_to), file = file.path(outdir, 'P.tbl'), sep = "\t", quote = FALSE, row.names=FALSE)
-write.table(round(Sigma, rounded_to), file = file.path(outdir, 'Sigma.tbl'), sep = "\t", quote = FALSE, row.names=FALSE)
-write.table(round(Rho, rounded_to), file = file.path(outdir, 'Rho.tbl'), sep = "\t", quote = FALSE, row.names=FALSE)
+    write.table(round(Sigma, rounded_to), file = file.path(outdir, 'Sigma.tbl'), sep = "\t", quote = FALSE, row.names=TRUE)
+    write.table(round(Rho, rounded_to), file = file.path(outdir, 'Rho.tbl'), sep = "\t", quote = FALSE, row.names=TRUE)
 }
 
 
@@ -860,7 +872,6 @@ pdf(outfile)
 if(!is_sim){
     if (! is.null(grp_info)){
         grp_list <- make_grp_list(grp_info, feature)
-        #grp_list <- list(group1=list('labels'=grp_info[,1],'col'='orange'), group2=list('labels'=grp_info[,2],'col'='blue'))
     } else{
         above_names <- c()
     }
@@ -909,17 +920,12 @@ for (i in seq_along(pcoas)){
     # grp_by_trait
     title <- paste("pcoa_name", "LDA_acc", "fdr_value", "DBI", sep="\t")
     determined_by_trait_outfile <- file.path(compare_outdir, "determined_by_trait.tbl")
-    if(i == 1){
-        write(title, file=determined_by_trait_outfile, sep="\t")
-    }
-    #if(is_sim){
-        check_clustering(pcoa, pcoa_name=pcoa_name, grp_list=grp_list, outfile=determined_by_trait_outfile)
-    #}
+    write(title, file=determined_by_trait_outfile, sep="\t")
+    check_clustering(pcoa, pcoa_name=pcoa_name, grp_list=grp_list, outfile=determined_by_trait_outfile)
+
     # grp_by_phylo
     determined_by_phylo_outfile <- file.path(compare_outdir, "determined_by_phylo.tbl")
-    if(i == 1){
-        write(title, file=determined_by_phylo_outfile, sep="\t")
-    }
+    write(title, file=determined_by_phylo_outfile, sep="\t")
     check_clustering(pcoa, pcoa_name=pcoa_name, grp_list_by_phylo, outfile=determined_by_phylo_outfile)
 }
 

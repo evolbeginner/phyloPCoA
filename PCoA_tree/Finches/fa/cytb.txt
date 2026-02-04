@@ -1,9 +1,0 @@
-Geospiza_fuliginosa	KJ945387
-Geospiza_fortis	KJ945375
-Geospiza_magnirostris	KJ945376
-Geospiza_scandens	KJ945379
-Camarhynchus_parvulus	KJ945366
-Camarhynchus_psittacula	KJ945338
-Camarhynchus_pallidus	KJ945369
-Platyspiza_crassirostris	KJ945378
-Certhidea_olivacea	KJ945386
