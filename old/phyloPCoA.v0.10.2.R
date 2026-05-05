@@ -8,8 +8,6 @@
 
 ###############################################################
 # Update history
-# 2025-05-05
-#   pagel's lambda (pagel_lam) and the beta distr hierarchical model! (v0.10.3)
 # 2026-02-02
 #   able to read more than one states of traits by '-g grp_file -t trait'
 # 2026-01-31
@@ -519,286 +517,31 @@ read_data <- function(C){
 }
 
 
+do_transformation <- function(transform, C, log_prop_geomean){
+    # calculate the inverse of C in order to calculate the root values
+    C_inv <- solve(C)
+    # calculate the phylo mean (root value) for each node
+    ones <- rep(1, dim(C)[1])
+    root_values <- apply(log_prop_geomean, 2, function(col) {
+        numerator <- col %*% C_inv %*% ones
+        numerator / (t(ones) %*% C_inv %*% ones)
+    })
 
-############ Beta #################
-logsumexp <- function(x) {
-  m <- max(x)
-  m + log(sum(exp(x - m)))
-}
-
-build_beta_discrete_grid <- function(K = 8, eps = 1e-6) {
-  edges <- seq(0, 1, length.out = K + 1)
-  mids  <- (edges[-1] + edges[-(K + 1)]) / 2
-  mids  <- pmin(pmax(mids, eps), 1 - eps)
-  list(edges = edges, mids = mids)
-}
-
-beta_bin_weights <- function(a, b, edges, min_w = 1e-12) {
-  w <- pbeta(edges[-1], shape1 = a, shape2 = b) -
-       pbeta(edges[-length(edges)], shape1 = a, shape2 = b)
-  w[w < min_w] <- min_w
-  w / sum(w)
-}
-
-# returns matrix: rows=features, cols=lambda classes
-precompute_loglik_matrix <- function(Y, C, lam_grid) {
-  if (is.vector(Y)) Y <- matrix(Y, ncol = 1)
-  p <- ncol(Y); K <- length(lam_grid)
-  LL <- matrix(-Inf, nrow = p, ncol = K)
-  colnames(LL) <- paste0("class_", seq_len(K))
-  rownames(LL) <- colnames(Y)
-
-  for (j in seq_len(p)) {
-    y <- Y[, j]
-    if (any(!is.finite(y)) || sd(y) < 1e-12) next
-    for (k in seq_len(K)) {
-      LL[j, k] <- logLik_pagel_lam_one_trait(y, C, lam_grid[k])
+    if (grepl("chol", transform, ignore.case = T)){
+        #de-correlation by Cholesky decomposition
+        L_inv <- solve(t(chol(C)))
+        #L_inv <- L_inv * sqrt(diag(C)[1])
+        X <- L_inv %*% t((t(log_prop_geomean) - root_values))
+        X <- t(t(X) + root_values)
+    } else if(grepl("garland", transform, ignore.case = T)){
+        # using C^(-0.5)
+        eig_decomp <- eigen(C)
+        L <- eig_decomp$vectors %*% diag(1/sqrt(eig_decomp$values)) %*% t(eig_decomp$vectors)
+        #L <- L * sqrt(diag(C)[1])
+        X <- L %*% t((t(log_prop_geomean) - root_values))
+        X <- t(t(X) + root_values)
     }
-  }
-  LL
-}
-
-
-estimate_pagel_lam_hierarchical <- function(Y, C, K = 8, verbose = TRUE) {
-  grid <- build_beta_discrete_grid(K = K)
-  lam_grid <- grid$mids
-  edges <- grid$edges
-
-  LL <- precompute_loglik_matrix(Y, C, lam_grid)  # p x K
-  ok_rows <- apply(LL, 1, function(z) any(is.finite(z)))
-  if (!any(ok_rows)) stop("No valid traits for hierarchical pagel_lam fit.")
-
-  LL_use <- LL[ok_rows, , drop = FALSE]
-
-  # Optimize over log(a), log(b) to enforce positivity
-  nll <- function(theta) {
-    a <- exp(theta[1]); b <- exp(theta[2])
-    w <- beta_bin_weights(a, b, edges)
-    logw <- log(w)
-
-    s <- 0
-    for (j in seq_len(nrow(LL_use))) {
-      z <- LL_use[j, ] + logw
-      s <- s + logsumexp(z)
-    }
-    -s
-  }
-
-  fit <- optim(
-    par = c(log(1), log(1)),
-    fn = nll,
-    method = "L-BFGS-B",
-    lower = c(log(1e-3), log(1e-3)),
-    upper = c(log(200), log(200))
-  )
-
-  a_hat <- exp(fit$par[1]); b_hat <- exp(fit$par[2])
-  w_hat <- beta_bin_weights(a_hat, b_hat, edges)
-
-  # posterior per feature
-  p <- nrow(LL)
-  K <- ncol(LL)
-  post <- matrix(NA_real_, nrow = p, ncol = K)
-  rownames(post) <- rownames(LL)
-  colnames(post) <- paste0("class_", seq_len(K))
-
-  post_mean <- rep(NA_real_, p)
-  post_map  <- rep(NA_real_, p)
-  names(post_mean) <- rownames(LL)
-  names(post_map)  <- rownames(LL)
-
-  logw <- log(w_hat)
-  for (j in seq_len(p)) {
-    z <- LL[j, ] + logw
-    if (!any(is.finite(z))) next
-    lse <- logsumexp(z)
-    pj <- exp(z - lse)
-    post[j, ] <- pj
-    post_mean[j] <- sum(pj * lam_grid)
-    post_map[j]  <- lam_grid[which.max(pj)]
-  }
-
-  if (verbose) {
-    cat("Hierarchical pagel_lam fit (K=", K, "): a=", round(a_hat, 6),
-        ", b=", round(b_hat, 6), "\n", sep = "")
-  }
-
-  list(
-    a = a_hat, b = b_hat,
-    lam_grid = lam_grid,
-    bin_weights = w_hat,
-    loglik_matrix = LL,
-    posterior = post,
-    pagel_lam_post_mean = post_mean,
-    pagel_lam_post_map = post_map,
-    converged = (fit$convergence == 0),
-    optim = fit
-  )
-}
-
-
-########### MLE pagel #############
-make_C_pagel_lam <- function(C, pagel_lam) {
-  C_lam <- C * pagel_lam
-  diag(C_lam) <- diag(C)  # Pagel's lambda: only off-diagonals scaled
-  C_lam <- as.matrix(Matrix::nearPD(C_lam)$mat)  # numerical safety
-  return(C_lam)
-}
-
-logLik_pagel_lam_one_trait <- function(y, C, pagel_lam) {
-  C_lam <- make_C_pagel_lam(C, pagel_lam)
-
-  invC <- tryCatch(solve(C_lam), error = function(e) NULL)
-  if (is.null(invC)) return(-Inf)
-
-  n <- length(y)
-  ones <- rep(1, n)
-
-  # GLS root/mean estimate
-  mu_hat <- as.numeric((t(ones) %*% invC %*% y) / (t(ones) %*% invC %*% ones))
-  r <- y - mu_hat
-
-  quad <- as.numeric(t(r) %*% invC %*% r)
-  if (!is.finite(quad) || quad <= 0) return(-Inf)
-
-  sigma2_hat <- quad / n
-  logdet <- as.numeric(determinant(C_lam, logarithm = TRUE)$modulus)
-
-  ll <- -0.5 * (n * log(2 * pi) + n * log(sigma2_hat) + logdet + n)
-  return(ll)
-}
-
-estimate_pagel_lam_mle <- function(Y, C, lower = 1e-6, upper = 1) {
-  if (is.vector(Y)) Y <- matrix(Y, ncol = 1)
-
-  obj <- function(pagel_lam) {
-    ll_sum <- 0
-    for (j in seq_len(ncol(Y))) {
-      y <- Y[, j]
-      if (any(!is.finite(y)) || sd(y) < 1e-12) next
-      ll <- logLik_pagel_lam_one_trait(y, C, pagel_lam)
-      if (!is.finite(ll)) return(1e100)
-      ll_sum <- ll_sum + ll
-    }
-    -ll_sum
-  }
-
-  fit <- optimize(obj, interval = c(lower, upper))
-  return(fit$minimum)
-}
-
-
-do_transformation <- function(transform,
-                              C,
-                              log_prop_geomean,
-                              use_pagel_lam = TRUE,
-                              pagel_lam_mode = c("global", "per_feature", "hierarchical", "none"),
-                              pagel_lam_lower = 1e-6,
-                              pagel_lam_upper = 1,
-                              hierarchical_K = 8,
-                              verbose = TRUE) {
-  pagel_lam_mode <- match.arg(pagel_lam_mode)
-
-  transform_one <- function(y, C_use, transform) {
-    C_inv <- solve(C_use)
-    ones <- rep(1, nrow(C_use))
-
-    root_value <- as.numeric((t(y) %*% C_inv %*% ones) / (t(ones) %*% C_inv %*% ones))
-
-    if (grepl("chol", transform, ignore.case = TRUE)) {
-      L_inv <- solve(t(chol(C_use)))
-      x <- as.numeric(L_inv %*% (y - root_value))
-      x <- x + root_value
-    } else if (grepl("garland", transform, ignore.case = TRUE)) {
-      eig <- eigen(C_use)
-      L <- eig$vectors %*% diag(1 / sqrt(eig$values)) %*% t(eig$vectors)
-      x <- as.numeric(L %*% (y - root_value))
-      x <- x + root_value
-    } else {
-      stop("Unknown transform: use 'chol' or 'garland'")
-    }
-    return(list(x = x, root = root_value))
-  }
-
-  X <- matrix(NA_real_, nrow = nrow(log_prop_geomean), ncol = ncol(log_prop_geomean))
-  rownames(X) <- rownames(log_prop_geomean)
-  colnames(X) <- colnames(log_prop_geomean)
-
-  pagel_lam_est <- rep(NA_real_, ncol(log_prop_geomean))
-  names(pagel_lam_est) <- colnames(log_prop_geomean)
-
-  if (!use_pagel_lam || pagel_lam_mode == "none") {
-    for (j in seq_len(ncol(log_prop_geomean))) {
-      y <- log_prop_geomean[, j]
-      tr <- transform_one(y, C, transform)
-      X[, j] <- tr$x
-      pagel_lam_est[j] <- 1
-    }
-
-  } else if (pagel_lam_mode == "global") {
-    pagel_lam <- estimate_pagel_lam_mle(log_prop_geomean, C, pagel_lam_lower, pagel_lam_upper)
-    C_lam <- make_C_pagel_lam(C, pagel_lam)
-
-    if (verbose) cat("Global pagel_lam MLE:", round(pagel_lam, 6), "\n")
-
-    for (j in seq_len(ncol(log_prop_geomean))) {
-      y <- log_prop_geomean[, j]
-      tr <- transform_one(y, C_lam, transform)
-      X[, j] <- tr$x
-      pagel_lam_est[j] <- pagel_lam
-    }
-
-  } else if (pagel_lam_mode == "per_feature") {
-    for (j in seq_len(ncol(log_prop_geomean))) {
-      y <- log_prop_geomean[, j]
-      pagel_lam_j <- estimate_pagel_lam_mle(y, C, pagel_lam_lower, pagel_lam_upper)
-      C_lam_j <- make_C_pagel_lam(C, pagel_lam_j)
-
-      tr <- transform_one(y, C_lam_j, transform)
-      X[, j] <- tr$x
-      pagel_lam_est[j] <- pagel_lam_j
-    }
-
-    if (verbose) {
-      cat("Per-feature pagel_lam estimated.\n")
-      cat("pagel_lam summary: min=", round(min(pagel_lam_est, na.rm = TRUE), 6),
-          " median=", round(median(pagel_lam_est, na.rm = TRUE), 6),
-          " max=", round(max(pagel_lam_est, na.rm = TRUE), 6), "\n", sep = "")
-    }
-  } else if (pagel_lam_mode == "hierarchical") {
-    hfit <- estimate_pagel_lam_hierarchical(
-      Y = log_prop_geomean, C = C, K = hierarchical_K, verbose = verbose
-    )
-
-    # choose posterior mean (smooth shrinkage)
-    pagel_lam_est <- hfit$pagel_lam_post_mean
-
-    for (j in seq_len(ncol(log_prop_geomean))) {
-      y <- log_prop_geomean[, j]
-      lam_j <- pagel_lam_est[j]
-      if (!is.finite(lam_j)) lam_j <- 1
-      C_lam_j <- make_C_pagel_lam(C, lam_j)
-      tr <- transform_one(y, C_lam_j, transform)
-      X[, j] <- tr$x
-    }
-
-    return(list(
-      X = X,
-      pagel_lam = pagel_lam_est,
-      pagel_lam_map = hfit$pagel_lam_post_map,
-      pagel_lam_hyper_a = hfit$a,
-      pagel_lam_hyper_b = hfit$b,
-      pagel_lam_grid = hfit$lam_grid,
-      pagel_lam_bin_weights = hfit$bin_weights,
-      pagel_lam_posterior = hfit$posterior,
-      hierarchical_converged = hfit$converged
-    ))
-  }
-
-  return(list(
-    X = X,
-    pagel_lam = pagel_lam_est
-  ))
+    return(X)
 }
 
 
@@ -1110,33 +853,9 @@ for(i in 1:dim(prop)[1]) # iterate host
 
 ##################################
 # P is the transformed matrix
-trans_res <- do_transformation(
-  transform = transform,
-  C = C,
-  log_prop_geomean = log_prop_geomean,
-  use_pagel_lam = TRUE,
-  pagel_lam_mode = "hierarchical" # "per_feature"
-)
-
-P <- trans_res$X
+P <- do_transformation(transform, C, log_prop_geomean)
 rownames(P) <- rownames(C)
-if (is.null(colnames(P))) {
-  colnames(P) <- colnames(log_prop_geomean)
-}
-if (is.null(colnames(P))) {
-  colnames(P) <- paste0("feature_", seq_len(ncol(P)))
-}
-
-pagel_lam_tbl <- data.frame(
-  feature = colnames(P),
-  pagel_lam_mle = trans_res$pagel_lam
-)
-
-write.table(
-  pagel_lam_tbl,
-  file = file.path(outdir, "pagel_lam_estimates.tbl"),
-  sep = "\t", quote = FALSE, row.names = FALSE
-)
+#cat("\n\n")
 
 
 rounded_to <- 3
