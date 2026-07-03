@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [v0.10.5]
+### Added
+- discrete trait simulated by CTMC rather than the liability model
+- output adonis
+
 ## [v0.10.4]
 ### Improved
 - Moved the script history notes from `phyloPCoA.R` into this changelog
