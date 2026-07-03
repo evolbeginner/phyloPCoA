@@ -1,7 +1,61 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [v0.10.4]
+### Improved
+- Moved the script history notes from `phyloPCoA.R` into this changelog
+### Added
+- lambda
+
 ## [0.10.3] - 2026-02-04
 ### Added
 - Species exclusion via `--species_exclude`
 - Species mismatch btwn the tree and otu_table
+
+## 2026-02-02
+### Improved
+- Able to read more than one state of traits with `-g grp_file -t trait`
+
+## 2026-01-31
+### Added
+- `get_grp_info()`
+
+## 2025-11-04
+### Improved
+- All output is written to `outdir`
+
+## 2025-11-01
+### Improved
+- Correlation with the true values instead of `Rho`
+
+## 2025-10-31
+### Added
+- `LDA`, `fdr`, and `BDI`
+
+## 2025-10-24
+### Fixed
+- `Rho` solved by forcing `v %*% t(v)` where `v` is i.i.d. `U(0.5, 1)`
+
+## 2025-10-22
+### Improved
+- Reorganized into functions
+- `R` improved with `nearPD`
+- `pcoa` plots with polygon
+
+## 2025-10-21
+### Improved
+- Greatly improved overall workflow
+- `prop`, `abun`, and `log_prop_geomean` now replace `Q`, `Y`, and `P`
+
+## 2025-07-18
+### Improved
+- Wrapped code to make it easier to read
+- Added `-T 30 -B 8 -p 0.2`
+
+## 2025-07-16
+### Improved
+- Some small update for XQ
+
+## 2025-07-16
+### Improved
+- Some more updates for XQ

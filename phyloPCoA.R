@@ -3,59 +3,6 @@
 # all rights reserved
 # Sishuo's idea on accounting phylogeny for proportion data
 
-# v0.10.2
-
-
-###############################################################
-# Update history
-# 2025-05-05
-#   pagel's lambda (pagel_lam) and the beta distr hierarchical model! (v0.10.3)
-# 2026-02-02
-#   able to read more than one states of traits by '-g grp_file -t trait'
-# 2026-01-31
-#   get_grp_info()
-# 2025-11-04
-#   all write to outdir
-# 2025-11-01
-#   correl with the true values (vs. Rho)
-# 2025-10-31
-#   LDA, fdr, BDI
-# 2025-10-24
-#   Rho solved by forcing v%*%v' where v iid~ U(0.5,1).
-# 2025-10-22
-#   R improved with nearPD
-#   re-organized into functions
-#   pcoa plots with polygon
-# 2025-10-21
-#   greatly improved!
-#   now prop, abun, log_prop_geomean to replace Q, Y, P
-# 2025-07-18
-#   some wrapping of the code to make it easier to read
-#   -T 30 -B 8 -p 0.2
-# 2025-07-16_2
-#   some more updates for XQ
-# 2025-07-16_1
-#   some small update for XQ
-# 2024-11-21
-#   pcoa_plot
-#   check_BM
-# 2024-11-14
-#   --all, --one
-# 2024-10-29
-#   pcoa sim
-# 2024-10-26
-#   Expectation transformed_X <- t(t(X)-root_values)
-#   Cholesky decomposition corrected!
-# 2024-10-25:
-#   Expectation after phylo_var transform updatd (Sishuo)
-#   pb() to generate traits
-#   TreeSim to generate random tree, where lambda and mu to ctrl for "phylogenetic relateness"
-#   X <- L %*% YY instead of t(L) for Cholesky decomposition
-#   C^(-0.5) %*% X may be also fine
-# 2024-09:
-#   Initiated (Youhua Chen)
-
-
 ###############################################################
 #set.seed(2)
 suppressWarnings(
@@ -1240,5 +1187,3 @@ for (f in files) {
     cat(readLines(f), sep = "\n")
     cat("\n")
 }
-
-
