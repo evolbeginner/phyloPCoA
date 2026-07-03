@@ -1,0 +1,71 @@
+Hierarchical pagel_lam fit (K=8): a=200, b=0.001
+Proportion of outliers:	 0 
+Proportion of outliers:	 0 
+Proportion of outliers:	 0 
+Proportion of outliers:	 0 
+Proportion of outliers:	 0 
+Proportion of outliers:	 0 
+Warning messages:
+1: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+2: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+3: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+4: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+Warning messages:
+1: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+2: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+3: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+4: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+Warning messages:
+1: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+2: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+3: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+4: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+null device 
+          1 
+haha2/run_22/compare//compared_to_R_matrix.tbl 
+pcoa_name	Correlation_coefficient	RMSD_top3	MRB_top3
+pcoa_1	0.972339795556235	0.0971826601671571	0.00831787116606489
+pcoa_2	0.97326208900021	0.0929848287197086	0.157930602605068
+pcoa_3	0.993398015752139	0.0483349699474195	0.0971168570796446
+
+haha2/run_22/compare//determined_by_phylo.tbl 
+pcoa_name	LDA_acc	fdr_value	DBI
+pcoa_1 0.76 0.0155039996489329 5.90375027426055
+pcoa_2 0.76 0.0110257810007672 6.90505974945307
+pcoa_3 0.76 0.00259336124832791 13.7181803148718
+
+haha2/run_22/compare//determined_by_trait.tbl 
+pcoa_name	LDA_acc	fdr_value	DBI
+pcoa_1 0.66 0.0552271364148183 3.51175568570626
+pcoa_2 0.63 0.0472031777872694 3.85833793601119
+pcoa_3 0.57 0.0165854909859687 6.55193550297832
+
+haha2/run_22/compare//explained.tbl 
+0.501 0.332 0.08 0.053 0.04 0.016 0.014 0.012 0.009 0.009 0.006 0.006 0.005 0.004 0.003 0.003 0.003 0.003 0.003 0.002 0.002 0.002 0.002 0.002 0.002 0.002 0.002 0.001 0.001 0.001
+0.529 0.359 0.106 0.003 0.002 0.001 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+0.587 0.307 0.1 0.003 0.002 0.001 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+

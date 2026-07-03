@@ -1,0 +1,74 @@
+Warning message:
+In rmvnorm_simul(n = n, mean = rep(0, p), var = sigma, method = methodSim) :
+  An error occured with the Cholesky decomposition, the "svd" method is used instead
+Hierarchical pagel_lam fit (K=8): a=200, b=0.001
+Proportion of outliers:	 0 
+Proportion of outliers:	 0 
+Proportion of outliers:	 0 
+Proportion of outliers:	 0 
+Proportion of outliers:	 0 
+Proportion of outliers:	 0 
+Warning messages:
+1: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+2: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+3: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+4: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+Warning messages:
+1: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+2: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+3: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+4: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+Warning messages:
+1: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+2: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+3: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+4: In vegdist(as.matrix(lhs), method = method, ...) :
+  results may be meaningless because data have negative entries
+                 in method “bray”
+null device 
+          1 
+haha2/run_17/compare//compared_to_R_matrix.tbl 
+pcoa_name	Correlation_coefficient	RMSD_top3	MRB_top3
+pcoa_1	0.974945831556605	0.0518052133188509	0.208154451184384
+pcoa_2	0.987528664279196	0.0404258233067556	0.154431363816079
+pcoa_3	0.988036809565932	0.0352024566206791	0.17858785890866
+
+haha2/run_17/compare//determined_by_phylo.tbl 
+pcoa_name	LDA_acc	fdr_value	DBI
+pcoa_1 0.61 0.00235782357683519 18.1369767510958
+pcoa_2 0.61 0.00196575953491857 19.5016556752916
+pcoa_3 0.61 0.000254819592085953 54.2352617304263
+
+haha2/run_17/compare//determined_by_trait.tbl 
+pcoa_name	LDA_acc	fdr_value	DBI
+pcoa_1 0.61 0.00235782357683519 18.1369767510958
+pcoa_2 0.61 0.00196575953491857 19.5016556752916
+pcoa_3 0.61 0.000254819592085953 54.2352617304263
+
+haha2/run_17/compare//explained.tbl 
+0.399 0.224 0.156 0.08 0.06 0.033 0.03 0.026 0.022 0.018 0.016 0.013 0.012 0.011 0.011 0.009 0.008 0.007 0.006 0.006 0.006 0.005 0.005 0.004 0.004 0.004 0.004 0.003 0.003 0.003
+0.365 0.277 0.123 0.078 0.06 0.046 0.031 0.016 0.002 0.001 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+0.365 0.232 0.154 0.076 0.064 0.061 0.026 0.016 0.002 0.001 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+

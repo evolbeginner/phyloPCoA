@@ -79,7 +79,7 @@ haha/
 |--------|-------------|
 | **LDA Accuracy** | Classification accuracy for group assignments |
 | **Fisher's Discriminant Ratio (FDR)** | Ratio of between-group variance to within-group variance |
-| **Davies–Bouldin Index (DBI)** | Cluster separation index (lower = better) |
+| **Davies–Bouldin Index (DBI)** | Cluster separation index (lower = more separated) |
 | **Correlation vs Rho** | Measures alignment between PCoA eigenstructure and true covariance |
 
 ## 🔬 Workflow Summary

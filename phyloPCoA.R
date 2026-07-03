@@ -297,6 +297,30 @@ get_phylo_groups <- function(tree){
 }
 
 
+simulate_discrete_trait <- function(tree, rate = 0.1) {
+  # Ensure strictly bifurcating tree (defensive)
+  if (!is.binary(tree)) {
+    tree <- multi2di(tree)
+  }
+
+  # Binary CTMC rate matrix
+  Q <- matrix(c(-rate, rate,
+                rate, -rate), nrow = 2, byrow = TRUE)
+  rownames(Q) <- colnames(Q) <- c("0", "1")
+
+  # root.value is index in states, so use 1 (state "0")
+  trait_states <- ape::rTraitDisc(
+    phy = tree,
+    model = Q,
+    states = c("0", "1"),
+    root.value = 1,
+    ancestor = FALSE
+  )
+
+  names(trait_states[trait_states == "1"])
+}
+
+
 ######################################
 create_single_plot <- function(matrix,
                                method = "bray",
@@ -443,6 +467,79 @@ calculate_correl_with_Rho <- function(Rho, pcoas, outfile) {
         output <- paste(pcoa_name, correl_eigval, rmsd, mrb, sep="\t")
         write(output, file=outfile, append=TRUE)
     }
+}
+
+
+write_adonis_results <- function(pcoa_res, grp_list, outdir, prefix) {
+  adonis_dir <- file.path(outdir, "adonis")
+  dir.create(adonis_dir, recursive = TRUE, showWarnings = FALSE)
+
+  group_map <- unlist(lapply(names(grp_list), function(g) {
+    setNames(rep(g, length(grp_list[[g]]$labels)), grp_list[[g]]$labels)
+  }))
+
+  sample_names <- rownames(pcoa_res$points)
+  grp_factor <- factor(group_map[sample_names])
+  if (any(is.na(grp_factor))) {
+    stop("adonis: group labels are missing for some PCoA samples.")
+  }
+
+  coords_all <- as.data.frame(pcoa_res$points)
+  coords_2 <- coords_all[, seq_len(min(2, ncol(coords_all))), drop = FALSE]
+
+  run_adonis <- function(coords) {
+    form <- stats::as.formula("coords ~ grp_factor")
+    fit <- vegan::adonis2(form, data = list(coords = coords, grp_factor = grp_factor))
+    fit_df <- as.data.frame(fit)
+    fit_df$term <- rownames(fit_df)
+    fit_df <- fit_df[fit_df$term != "Total" & fit_df$term != "Residual", c("term", "R2", "Pr(>F)")]
+    colnames(fit_df) <- c("term", "R2", "P_value")
+    fit_df
+  }
+
+  all_axes <- run_adonis(coords_all)
+  first_two <- run_adonis(coords_2)
+
+  write.table(
+    all_axes,
+    file = file.path(adonis_dir, paste0(prefix, "_all_axes.tbl")),
+    sep = "\t", quote = FALSE, row.names = FALSE
+  )
+  write.table(
+    first_two,
+    file = file.path(adonis_dir, paste0(prefix, "_pc1_pc2.tbl")),
+    sep = "\t", quote = FALSE, row.names = FALSE
+  )
+}
+
+write_adonis_results_for_groups <- function(pcoa_res, outdir, prefix, grp_list_phylo = NULL, grp_list_trait = NULL) {
+  if (!is.null(grp_list_trait)) {
+    write_adonis_results(pcoa_res, grp_list_trait, outdir, paste0(prefix, "_by_trait"))
+  }
+  if (!is.null(grp_list_phylo)) {
+    write_adonis_results(pcoa_res, grp_list_phylo, outdir, paste0(prefix, "_by_phylo"))
+  }
+}
+
+
+write_group_list <- function(grp_list, outdir, filename = "grp_list_by_phylo.tbl") {
+  adonis_dir <- file.path(outdir, "adonis")
+  dir.create(adonis_dir, recursive = TRUE, showWarnings = FALSE)
+
+  group_df <- do.call(rbind, lapply(names(grp_list), function(g) {
+    data.frame(
+      group = g,
+      sample = grp_list[[g]]$labels,
+      color = grp_list[[g]]$col,
+      stringsAsFactors = FALSE
+    )
+  }))
+
+  write.table(
+    group_df,
+    file = file.path(adonis_dir, filename),
+    sep = "\t", quote = FALSE, row.names = FALSE
+  )
 }
 
 
@@ -850,6 +947,8 @@ spec = matrix(c(
     'standardize', 'S', 0, "logical",
     'outlier', '', 2, 'double',
     'species_exclude', '_', 2, 'character',
+    'sim_discrete_trait', 'D', 0, 'logical',
+    'binary_rate', 'r', 2, 'double',
 
     'help' , 'h', 0, "logical",
     'outdir', 'o', 1, "character",
@@ -962,6 +1061,14 @@ if(! is.null(opt$feature)){
     feature <- opt$feature
 }
 
+sim_discrete_trait <- FALSE
+if (!is.null(opt$sim_discrete_trait)) {
+    sim_discrete_trait <- TRUE
+}
+if (!is.null(opt$binary_rate)) {
+    binary_rate <- opt$binary_rate
+}
+
 if(! is.null(opt$force)){
     is_force <- TRUE
 }
@@ -1016,6 +1123,12 @@ if(! is_sim){
     Rho <- sim_res$Rho
 }
 
+trait_group_names <- above_names
+if (is_sim && isTRUE(sim_discrete_trait)) {
+    trait_group_names <- simulate_discrete_trait(tree, rate = binary_rate)
+    cat("using simulated discrete trait with", length(trait_group_names), "state-1 tips at rate ", binary_rate, "\n", sep = "")
+}
+
 
 if(is_check){
     phylo_sig <- check_BM(prop, tree, filter_P, filter_mode)
@@ -1038,6 +1151,8 @@ if(is_check){
         Sigma <- Sigma[selected_cols, selected_cols]
         Rho <- Rho[selected_cols, selected_cols]
     }
+
+    trait_group_names <- intersect(trait_group_names, rownames(prop))
 }
 
 
@@ -1109,12 +1224,12 @@ if(!is_sim){
     if (! is.null(grp_info)){
         grp_list <- make_grp_list(grp_info, feature)
     } else{
-        above_names <- c()
+        trait_group_names <- c()
     }
 } else{
     grp_list <- list(
-        group1=list('labels'=above_names, 'col'='orange'), 
-        group2=list('labels'=setdiff(tree$tip.label,above_names),'col'='blue')
+        group1=list('labels'=trait_group_names, 'col'='orange'), 
+        group2=list('labels'=setdiff(tree$tip.label,trait_group_names),'col'='blue')
     )
 }
 
@@ -1137,6 +1252,13 @@ plot_graphs(prop, log_prop_geomean, P, outfile, grp_list_by_phylo, outlier_k)
 
 ##################################
 pcoas <- list(pcoa_0, pcoa_1, pcoa_2)
+
+write_group_list(grp_list_by_phylo, outdir)
+write_adonis_results_for_groups(pcoa_0, outdir, "pcoa_0", grp_list_by_phylo, grp_list)
+write_adonis_results_for_groups(pcoa_1, outdir, "pcoa_1", grp_list_by_phylo, grp_list)
+if (!is_inter) {
+    write_adonis_results_for_groups(pcoa_2, outdir, "pcoa_2", grp_list_by_phylo, grp_list)
+}
 
 compare_outdir <- file.path(outdir, "compare")
 dir.create(compare_outdir, recursive = TRUE)
