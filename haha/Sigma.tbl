@@ -1,0 +1,11 @@
+feature_1	feature_2	feature_3	feature_4	feature_5	feature_6	feature_7	feature_8	feature_9	feature_10
+feature_1	0.027	0	0	0	0	0	0	0	0	0
+feature_2	0	0.017	0	0	0	0	0	0	0	0
+feature_3	0	0	0.146	0	0	0	0	0	0	0
+feature_4	0	0	0	0.1	0	0	0	0	0	0
+feature_5	0	0	0	0	0.099	0	0	0	0	0
+feature_6	0	0	0	0	0	0.166	0	0	0	0
+feature_7	0	0	0	0	0	0	0.027	0	0	0
+feature_8	0	0	0	0	0	0	0	0.004	0	0
+feature_9	0	0	0	0	0	0	0	0	0.286	0
+feature_10	0	0	0	0	0	0	0	0	0	0.099

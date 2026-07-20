@@ -1,0 +1,17 @@
+/mnt/hd1/home/sishuo/anaconda3/lib/R/bin/exec/R
+--no-echo
+--no-restore
+--file=../phyloPCoA.R
+--args
+--sim
+--outdir
+smoke_sim_above_names
+--force
+--pagel_lam_mode
+none
+--tnum
+10
+--bnum
+8
+--outlier
+3

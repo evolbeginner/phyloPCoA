@@ -1,0 +1,15 @@
+feature	pagel_lam_posterior_mean	pagel_lam_map	beta_alpha_mle	beta_beta_mle	hierarchical_converged	pagel_lam_mode	pagel_lam_mode_requested
+Actinobacteria_Actinomycetales	0.534068551994643	0.5625	5.94914050777014	3.0384903360669	TRUE	hierarchical	hierarchical
+Bacteroidetes_Bacteroidales	0.93495429130171	0.9375	5.94914050777014	3.0384903360669	TRUE	hierarchical	hierarchical
+Firmicutes_Bacillales	0.56762830065559	0.5625	5.94914050777014	3.0384903360669	TRUE	hierarchical	hierarchical
+Firmicutes_Clostridiales	0.70583480096365	0.6875	5.94914050777014	3.0384903360669	TRUE	hierarchical	hierarchical
+Firmicutes_Erysipelotrichales	0.788466101972535	0.8125	5.94914050777014	3.0384903360669	TRUE	hierarchical	hierarchical
+Firmicutes_Lactobacillales	0.625045718149823	0.6875	5.94914050777014	3.0384903360669	TRUE	hierarchical	hierarchical
+Fusobacteria_Fusobacteriales	0.783867071335268	0.8125	5.94914050777014	3.0384903360669	TRUE	hierarchical	hierarchical
+Proteobacteria_Burkholderiales	0.73790855005999	0.6875	5.94914050777014	3.0384903360669	TRUE	hierarchical	hierarchical
+Proteobacteria_Campylobacterales	0.747821342845017	0.8125	5.94914050777014	3.0384903360669	TRUE	hierarchical	hierarchical
+Proteobacteria_Enterobacteriales	0.720821899792246	0.6875	5.94914050777014	3.0384903360669	TRUE	hierarchical	hierarchical
+Proteobacteria_Legionellales	0.388010644556523	0.4375	5.94914050777014	3.0384903360669	TRUE	hierarchical	hierarchical
+Proteobacteria_Pseudomonadales	0.47305508771809	0.4375	5.94914050777014	3.0384903360669	TRUE	hierarchical	hierarchical
+Proteobacteria_Rhizobiales	0.645126216214094	0.6875	5.94914050777014	3.0384903360669	TRUE	hierarchical	hierarchical
+Tenericutes_Mycoplasmatales	0.615508815278485	0.5625	5.94914050777014	3.0384903360669	TRUE	hierarchical	hierarchical

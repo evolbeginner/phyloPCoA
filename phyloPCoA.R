@@ -32,6 +32,9 @@ suppressPackageStartupMessages({
 ##################################
 calculate_pcoa <- function(X, method = "bray", scaled=FALSE, grp_list) {
     if(scaled == TRUE){X <- scale(X)}
+    if (identical(method, "bray") && any(X < 0, na.rm = TRUE)) {
+        method <- "euclidean"
+    }
     distance <- vegdist(X, method = method)
     pcoa_res <- cmdscale(distance, eig = T)
     return(pcoa_res)
@@ -39,18 +42,18 @@ calculate_pcoa <- function(X, method = "bray", scaled=FALSE, grp_list) {
 
 
 check_clustering <- function(pcoa_res, pcoa_name, grp_list, outfile){
-    lda_input <- as.data.frame(pcoa_res$points)
     group_map <- unlist(lapply(names(grp_list), function(g) {
         setNames(rep(g, length(grp_list[[g]]$labels)), grp_list[[g]]$labels)
     }))
-    sample_names <- names(group_map)
-    grp_factor <- factor(group_map[sample_names])
-
-    # do LDA
-    lda_model <- lda(grp_factor ~ ., data = lda_input)
-    lda_pred <- predict(lda_model)
-    conf_mat <- table(True = grp_factor, Pred = lda_pred$class)
-    acc <- sum(diag(conf_mat))/sum(conf_mat)
+    sample_names <- rownames(pcoa_res$points)
+    grp_factor <- droplevels(factor(group_map[sample_names]))
+    if (any(is.na(grp_factor))) {
+        stop("clustering: group labels are missing for some PCoA samples.")
+    }
+    if (nlevels(grp_factor) < 2) {
+        write(paste(pcoa_name, NA, NA), file=outfile, append=TRUE, sep="\t")
+        return(invisible(NULL))
+    }
 
     dat <- cbind(as.data.frame(pcoa_res$points), group = grp_factor)
     k <- 2 #ncol(dat)-1
@@ -66,8 +69,8 @@ check_clustering <- function(pcoa_res, pcoa_name, grp_list, outfile){
     # BDI Davies-Bouldin index
     db_index <- davies_bouldin(coords, grp_factor)
 
-    write(paste(pcoa_name, acc, fdr_value, db_index), file=outfile, append=TRUE, sep="\t")
-    #cat(pcoa_name, acc, fdr_value, db_index, "\n", file = outfile, append = TRUE, sep = "\t")
+    write(paste(pcoa_name, fdr_value, db_index), file=outfile, append=TRUE, sep="\t")
+    #cat(pcoa_name, fdr_value, db_index, "\n", file = outfile, append = TRUE, sep = "\t")
 }
 
 
@@ -163,7 +166,7 @@ generate_metadata2 <- function(metadata_file, abundance){
 }
 
 
-simulate_covariance3 <- function(n=5, rate = 1, exponent = 4) {
+simulate_covariance3 <- function(n=5, rate = 1, exponent = 0) {
   # Step 1: Generate random orthogonal basis (once)
   Q <- qr.Q(qr(matrix(rnorm(n^2), n)))
   
@@ -334,6 +337,9 @@ create_single_plot <- function(matrix,
   }
 
   ## ---- PCoA ----
+  if (identical(method, "bray") && any(matrix < 0, na.rm = TRUE)) {
+    method <- "euclidean"
+  }
   diss <- vegan::vegdist(matrix, method = method)
   pts  <- cmdscale(diss, k = 2, eig = TRUE)
 
@@ -422,18 +428,19 @@ create_single_plot <- function(matrix,
 }
 
 
-plot_graphs <- function(m1, m2, m3, outfile, grp_list, outlier_k) {
-    par(mfrow = c(2, 2))
+plot_graphs <- function(m1, m2, m3, m4, grp_list, outlier_k) {
+    layout(matrix(c(1, 2, 3, 4, 5, 5), nrow = 3, byrow = TRUE))
     create_single_plot(m1, method = "bray", "green", title = "PCoA BC-distance", group_samples = grp_list, outlier_k)
     create_single_plot(m2, method = "euclidean", "cyan", title = "PCoA: Euclidean (CLR, standard)", group_samples = grp_list, outlier_k)
     create_single_plot(m3, method = "euclidean", "red", title = "PCoA: Euclidean \n(CLR, phylo decorrelated)", group_samples = grp_list, outlier_k)
+    create_single_plot(m4, method = "bray", "purple", title = "PCoA: BC-distance \n(back-transformed prop2)", group_samples = grp_list, outlier_k)
 
     tip_colors <- rep(NA, length(tree$tip.label))
     #tip_colors <- ifelse(tree$tip.label %in% above_names, "orange", "blue")
     for (g in grp_list) {
         tip_colors[tree$tip.label %in% g$labels] <- g$col
     }
-    plot(tree, tip.color = tip_colors, cex = 0.3, label.offset = 0.01)
+    plot(tree, tip.color = tip_colors, cex = 0.6, label.offset = 0.01)
 }
 
 
@@ -445,6 +452,13 @@ calculate_correl_with_Rho <- function(Rho, pcoas, outfile) {
     len2 <- min(3, len)
     len3 <- min(3, len)
 
+    safe_cor <- function(x, y) {
+        if (length(x) < 2 || length(y) < 2) return(NA_real_)
+        if (!all(is.finite(x)) || !all(is.finite(y))) return(NA_real_)
+        if (stats::sd(x) == 0 || stats::sd(y) == 0) return(NA_real_)
+        stats::cor(x, y)
+    }
+
     title <- paste("pcoa_name", "Correlation_coefficient", paste("RMSD_top", len2, sep=''), paste("MRB_top", len3, sep=''), sep = "\t")
     write(title, file=outfile)
 
@@ -452,18 +466,20 @@ calculate_correl_with_Rho <- function(Rho, pcoas, outfile) {
         pcoa <- pcoas[[i]]
         pcoa_norm <- pcoa$eig / sum(pcoa$eig)
         pcoa_name <- paste("pcoa_", i, sep="")
+        compare_len <- min(length(sorted_norm_Rho_eigens), length(pcoa_norm))
+        top_len <- min(3, compare_len)
         # correl eigen value
-        correl_eigval <- cor(sorted_norm_Rho_eigens[1:len], pcoa_norm[1:len])
+        correl_eigval <- safe_cor(sorted_norm_Rho_eigens[1:compare_len], pcoa_norm[1:compare_len])
 
         # correl eigen vector
         #correl_eigvec <- mean(sapply(1:len, function(i) { cor(sorted_eigvecs[, i], pcoa$points[, i]) }))
 
         # RMSD
-        rmsd <- sqrt(sum((sorted_norm_Rho_eigens[1:len2] - pcoa_norm[1:len2])^2) / len2)
+        rmsd <- sqrt(sum((sorted_norm_Rho_eigens[1:top_len] - pcoa_norm[1:top_len])^2) / top_len)
 
         # mean relative bias (see Gascuel's NC paper MRB)
-        len3 <- min(3, len)
-        mrb <- mean((pcoa_norm[1:len3] - sorted_norm_Rho_eigens[1:len3]) / sorted_norm_Rho_eigens[1:len3])
+        denom <- sorted_norm_Rho_eigens[1:top_len]
+        mrb <- if (any(!is.finite(denom)) || any(denom == 0)) NA_real_ else mean((pcoa_norm[1:top_len] - denom) / denom)
         output <- paste(pcoa_name, correl_eigval, rmsd, mrb, sep="\t")
         write(output, file=outfile, append=TRUE)
     }
@@ -479,7 +495,7 @@ write_adonis_results <- function(pcoa_res, grp_list, outdir, prefix) {
   }))
 
   sample_names <- rownames(pcoa_res$points)
-  grp_factor <- factor(group_map[sample_names])
+  grp_factor <- droplevels(factor(group_map[sample_names]))
   if (any(is.na(grp_factor))) {
     stop("adonis: group labels are missing for some PCoA samples.")
   }
@@ -488,8 +504,16 @@ write_adonis_results <- function(pcoa_res, grp_list, outdir, prefix) {
   coords_2 <- coords_all[, seq_len(min(2, ncol(coords_all))), drop = FALSE]
 
   run_adonis <- function(coords) {
+    if (nlevels(grp_factor) < 2) {
+      return(data.frame(term = "grp_factor", R2 = NA_real_, P_value = NA_real_))
+    }
+
     form <- stats::as.formula("coords ~ grp_factor")
-    fit <- vegan::adonis2(form, data = list(coords = coords, grp_factor = grp_factor))
+    fit <- vegan::adonis2(
+      form,
+      data = list(coords = coords, grp_factor = grp_factor),
+      method = "euclidean"
+    )
     fit_df <- as.data.frame(fit)
     fit_df$term <- rownames(fit_df)
     fit_df <- fit_df[fit_df$term != "Total" & fit_df$term != "Residual", c("term", "R2", "Pr(>F)")]
@@ -562,26 +586,142 @@ read_data <- function(C){
     return(list(C=C, abundance=abundance, prop=prop))
 }
 
+parse_sim_pagel_lam_spec <- function(spec, n_features) {
+  spec <- trimws(spec)
+
+  if (grepl("^beta([(:=,])", spec, ignore.case = TRUE)) {
+    payload <- sub("^beta\\s*[:(=,]\\s*", "", spec, ignore.case = TRUE)
+    payload <- sub("\\)$", "", payload)
+    parts <- strsplit(payload, "[,[:space:]]+")[[1]]
+    parts <- parts[nzchar(parts)]
+    if (length(parts) != 2) {
+      stop("beta pagel_lam spec must look like 'beta:alpha,beta'")
+    }
+    alpha <- as.numeric(parts[1])
+    beta <- as.numeric(parts[2])
+    if (!is.finite(alpha) || !is.finite(beta) || alpha <= 0 || beta <= 0) {
+      stop("beta pagel_lam parameters must be positive finite numbers")
+    }
+    values <- rbeta(n_features, shape1 = alpha, shape2 = beta)
+    return(list(
+      values = values,
+      source = "beta",
+      spec = spec,
+      alpha = alpha,
+      beta = beta
+    ))
+  }
+
+  value <- as.numeric(spec)
+  if (!is.finite(value)) {
+      stop("pagel_lam_sim must be either a numeric value or a beta spec like 'beta:2,5'")
+  }
+  if (value < 0 || value > 1) {
+    stop("pagel_lam_sim value must be between 0 and 1")
+  }
+
+  list(
+    values = rep(value, n_features),
+    source = "fixed",
+    spec = spec,
+    alpha = NA_real_,
+    beta = NA_real_
+  )
+}
+
+align_feature_covariance <- function(Sigma, Rho, feature_names) {
+  n_features <- length(feature_names)
+  if (n_features == 0) {
+    stop("feature_names must contain at least one feature.")
+  }
+  if (nrow(Sigma) < n_features || ncol(Sigma) < n_features) {
+    stop("Sigma has fewer dimensions than the simulated feature matrix.")
+  }
+
+  Sigma <- Sigma[seq_len(n_features), seq_len(n_features), drop = FALSE]
+  Rho <- Rho[seq_len(n_features), seq_len(n_features), drop = FALSE]
+  rownames(Sigma) <- colnames(Sigma) <- feature_names
+  rownames(Rho) <- colnames(Rho) <- feature_names
+  list(Sigma = Sigma, Rho = Rho)
+}
+
+
+simulate_pagel_lam_clr_data <- function(C, sim_pagel_lam_res, Sigma, feature_names = NULL) {
+  lam_values <- sim_pagel_lam_res$values
+  n_features <- length(lam_values)
+  n_tips <- nrow(C)
+  Sigma <- as.matrix(Sigma)
+  if (nrow(Sigma) != n_features || ncol(Sigma) != n_features) {
+    stop("Sigma dimensions must match pagel_lam simulated feature count.")
+  }
+
+  C_lams <- lapply(lam_values, function(lam) make_C_pagel_lam(C, lam))
+  if (length(unique(round(lam_values, 12))) == 1) {
+    L_C <- t(chol(C_lams[[1]]))
+    U_Sigma <- chol(Sigma)
+    X <- L_C %*% matrix(rnorm(n_tips * n_features), n_tips, n_features) %*% U_Sigma
+  } else {
+    joint_cov <- matrix(NA_real_, n_tips * n_features, n_tips * n_features)
+    for (j in seq_len(n_features)) {
+      row_idx <- ((j - 1) * n_tips + 1):(j * n_tips)
+      for (k in seq_len(n_features)) {
+        col_idx <- ((k - 1) * n_tips + 1):(k * n_tips)
+        joint_cov[row_idx, col_idx] <- Sigma[j, k] * sqrt(pmax(C_lams[[j]] * C_lams[[k]], 0))
+      }
+    }
+    joint_cov <- as.matrix(Matrix::nearPD(joint_cov)$mat)
+    x_vec <- as.numeric(MASS::mvrnorm(1, mu = rep(0, n_tips * n_features), Sigma = joint_cov))
+    X <- matrix(x_vec, nrow = n_tips, ncol = n_features)
+  }
+
+  X <- sweep(X, 1, rowMeans(X), "-")
+  rownames(X) <- rownames(C)
+  if (!is.null(feature_names)) {
+    colnames(X) <- feature_names
+  }
+
+  prop <- exp(X)
+  prop <- sweep(prop, 1, rowSums(prop), "/")
+  log_prop <- log(prop)
+  log_prop_geomean <- sweep(log_prop, 1, rowMeans(log_prop), "-")
+
+  list(
+    prop = prop,
+    log_prop = log_prop,
+    log_prop_geomean = log_prop_geomean
+  )
+}
+
 
 
 ############ Beta #################
 logsumexp <- function(x) {
+  if (!any(is.finite(x))) return(-Inf)
   m <- max(x)
   m + log(sum(exp(x - m)))
 }
 
-build_beta_discrete_grid <- function(K = 8, eps = 1e-6) {
-  edges <- seq(0, 1, length.out = K + 1)
-  mids  <- (edges[-1] + edges[-(K + 1)]) / 2
-  mids  <- pmin(pmax(mids, eps), 1 - eps)
-  list(edges = edges, mids = mids)
-}
+build_beta_discrete_grid <- function(a, b, K = 8, min_weight = 1e-12) {
+  if (length(a) != 1 || length(b) != 1 ||
+      !is.finite(a) || !is.finite(b) || a <= 0 || b <= 0) {
+    stop("Beta shape parameters a and b must be positive finite numbers.")
+  }
+  if (length(K) != 1 || !is.finite(K) || K < 2 || K != as.integer(K)) {
+    stop("K must be a single integer greater than or equal to 2.")
+  }
 
-beta_bin_weights <- function(a, b, edges, min_w = 1e-12) {
-  w <- pbeta(edges[-1], shape1 = a, shape2 = b) -
-       pbeta(edges[-length(edges)], shape1 = a, shape2 = b)
-  w[w < min_w] <- min_w
-  w / sum(w)
+  # Fixed equal-width lambda classes have Beta-dependent probabilities. This
+  # lets skewed priors put more mass in the appropriate classes instead of
+  # forcing every class to have weight 1 / K.
+  edges <- seq(0, 1, length.out = K + 1)
+  raw_weights <- pbeta(edges[-1], shape1 = a, shape2 = b) -
+                 pbeta(edges[-length(edges)], shape1 = a, shape2 = b)
+  lam_grid <- (edges[-1] + edges[-length(edges)]) / 2
+
+  weights <- pmax(raw_weights, min_weight)
+  weights <- weights / sum(weights)
+
+  list(edges = edges, lam_grid = lam_grid, weights = weights)
 }
 
 # returns matrix: rows=features, cols=lambda classes
@@ -602,23 +742,55 @@ precompute_loglik_matrix <- function(Y, C, lam_grid) {
   LL
 }
 
+beta_shapes_from_moments <- function(x, min_shape = 1e-6, max_shape = 200) {
+  x <- x[is.finite(x)]
+  x <- pmin(pmax(x, 1e-4), 1 - 1e-4)
+  if (length(x) < 2) {
+    return(c(a = 2, b = 2))
+  }
 
-estimate_pagel_lam_hierarchical <- function(Y, C, K = 8, verbose = TRUE) {
-  grid <- build_beta_discrete_grid(K = K)
-  lam_grid <- grid$mids
-  edges <- grid$edges
+  m <- mean(x)
+  v <- stats::var(x)
+  max_v <- m * (1 - m)
+  if (!is.finite(v) || v <= 0 || v >= max_v) {
+    concentration <- 4
+  } else {
+    concentration <- max_v / v - 1
+  }
 
-  LL <- precompute_loglik_matrix(Y, C, lam_grid)  # p x K
-  ok_rows <- apply(LL, 1, function(z) any(is.finite(z)))
-  if (!any(ok_rows)) stop("No valid traits for hierarchical pagel_lam fit.")
+  a <- m * concentration
+  b <- (1 - m) * concentration
+  c(
+    a = pmin(pmax(a, min_shape), max_shape),
+    b = pmin(pmax(b, min_shape), max_shape)
+  )
+}
 
-  LL_use <- LL[ok_rows, , drop = FALSE]
+estimate_pagel_lam_hierarchical <- function(Y, C, K = 8, verbose = TRUE,
+                                            beta_shape_lower = 1e-6,
+                                            beta_shape_upper = 200) {
+  if (is.vector(Y)) Y <- matrix(Y, ncol = 1)
+  valid_traits <- apply(Y, 2, function(y) all(is.finite(y)) && sd(y) >= 1e-12)
+  if (!any(valid_traits)) stop("No valid traits for hierarchical pagel_lam fit.")
+  Y_use <- Y[, valid_traits, drop = FALSE]
+  beta_shape_lower <- max(beta_shape_lower, 1e-6)
+  if (beta_shape_upper <= beta_shape_lower) {
+    stop("beta_shape_upper must be greater than beta_shape_lower.")
+  }
+  lam_start <- apply(Y_use, 2, estimate_pagel_lam_mle, C = C)
+  shape_start <- beta_shapes_from_moments(
+    lam_start,
+    min_shape = beta_shape_lower,
+    max_shape = beta_shape_upper
+  )
+  base_grid <- build_beta_discrete_grid(a = 1, b = 1, K = K)
+  LL_use <- precompute_loglik_matrix(Y_use, C, base_grid$lam_grid)
 
-  # Optimize over log(a), log(b) to enforce positivity
+  # Constrain beta shapes to positive finite values while allowing shapes below 1.
   nll <- function(theta) {
     a <- exp(theta[1]); b <- exp(theta[2])
-    w <- beta_bin_weights(a, b, edges)
-    logw <- log(w)
+    grid <- build_beta_discrete_grid(a = a, b = b, K = K)
+    logw <- log(grid$weights)
 
     s <- 0
     for (j in seq_len(nrow(LL_use))) {
@@ -629,15 +801,18 @@ estimate_pagel_lam_hierarchical <- function(Y, C, K = 8, verbose = TRUE) {
   }
 
   fit <- optim(
-    par = c(log(1), log(1)),
+    par = log(shape_start),
     fn = nll,
     method = "L-BFGS-B",
-    lower = c(log(1e-3), log(1e-3)),
-    upper = c(log(200), log(200))
+    lower = c(log(beta_shape_lower), log(beta_shape_lower)),
+    upper = c(log(beta_shape_upper), log(beta_shape_upper))
   )
 
   a_hat <- exp(fit$par[1]); b_hat <- exp(fit$par[2])
-  w_hat <- beta_bin_weights(a_hat, b_hat, edges)
+  grid <- build_beta_discrete_grid(a = a_hat, b = b_hat, K = K)
+  lam_grid <- grid$lam_grid
+  w_hat <- grid$weights
+  LL <- precompute_loglik_matrix(Y, C, lam_grid)  # p x K
 
   # posterior per feature
   p <- nrow(LL)
@@ -684,7 +859,7 @@ estimate_pagel_lam_hierarchical <- function(Y, C, K = 8, verbose = TRUE) {
 ########### MLE pagel #############
 make_C_pagel_lam <- function(C, pagel_lam) {
   C_lam <- C * pagel_lam
-  diag(C_lam) <- diag(C)  # Pagel's lambda: only off-diagonals scaled
+  diag(C_lam) <- diag(C)  # pagel's lambda: only off-diagonals scaled
   C_lam <- as.matrix(Matrix::nearPD(C_lam)$mat)  # numerical safety
   return(C_lam)
 }
@@ -732,16 +907,141 @@ estimate_pagel_lam_mle <- function(Y, C, lower = 1e-6, upper = 1) {
 }
 
 
+sum_logLik_pagel_lam <- function(Y, C, pagel_lam) {
+  if (is.vector(Y)) Y <- matrix(Y, ncol = 1)
+
+  ll_sum <- 0
+  n_valid <- 0
+  for (j in seq_len(ncol(Y))) {
+    y <- Y[, j]
+    if (any(!is.finite(y)) || sd(y) < 1e-12) next
+    ll <- logLik_pagel_lam_one_trait(y, C, pagel_lam)
+    if (!is.finite(ll)) return(list(logLik = -Inf, n_valid = n_valid))
+    ll_sum <- ll_sum + ll
+    n_valid <- n_valid + 1
+  }
+
+  list(logLik = ll_sum, n_valid = n_valid)
+}
+
+
+select_pagel_lam_mode_by_aic <- function(Y,
+                                         C,
+                                         lower = 1e-6,
+                                         upper = 1,
+                                         hierarchical_K = 8,
+                                         verbose = TRUE) {
+  if (is.vector(Y)) Y <- matrix(Y, ncol = 1)
+
+  scores <- list()
+
+  none_ll <- sum_logLik_pagel_lam(Y, C, 1)
+  scores[["none"]] <- data.frame(
+    pagel_lam_mode = "none",
+    logLik = none_ll$logLik,
+    lambda_params = 0,
+    n_valid_features = none_ll$n_valid,
+    AIC = -2 * none_ll$logLik,
+    stringsAsFactors = FALSE
+  )
+
+  global_lam <- estimate_pagel_lam_mle(Y, C, lower, upper)
+  global_ll <- sum_logLik_pagel_lam(Y, C, global_lam)
+  scores[["global"]] <- data.frame(
+    pagel_lam_mode = "global",
+    logLik = global_ll$logLik,
+    lambda_params = 1,
+    n_valid_features = global_ll$n_valid,
+    AIC = -2 * global_ll$logLik + 2,
+    stringsAsFactors = FALSE
+  )
+
+  per_feature_ll <- 0
+  per_feature_n <- 0
+  for (j in seq_len(ncol(Y))) {
+    y <- Y[, j]
+    if (any(!is.finite(y)) || sd(y) < 1e-12) next
+    lam_j <- estimate_pagel_lam_mle(y, C, lower, upper)
+    ll_j <- logLik_pagel_lam_one_trait(y, C, lam_j)
+    if (!is.finite(ll_j)) {
+      per_feature_ll <- -Inf
+      break
+    }
+    per_feature_ll <- per_feature_ll + ll_j
+    per_feature_n <- per_feature_n + 1
+  }
+  scores[["per_feature"]] <- data.frame(
+    pagel_lam_mode = "per_feature",
+    logLik = per_feature_ll,
+    lambda_params = per_feature_n,
+    n_valid_features = per_feature_n,
+    AIC = -2 * per_feature_ll + 2 * per_feature_n,
+    stringsAsFactors = FALSE
+  )
+
+  hfit <- estimate_pagel_lam_hierarchical(
+    Y = Y, C = C, K = hierarchical_K, verbose = verbose
+  )
+  hierarchical_ll <- -hfit$optim$value
+  scores[["hierarchical"]] <- data.frame(
+    pagel_lam_mode = "hierarchical",
+    logLik = hierarchical_ll,
+    lambda_params = 2,
+    n_valid_features = sum(apply(hfit$loglik_matrix, 1, function(z) any(is.finite(z)))),
+    AIC = -2 * hierarchical_ll + 4,
+    stringsAsFactors = FALSE
+  )
+
+  aic_tbl <- do.call(rbind, scores)
+  rownames(aic_tbl) <- NULL
+  aic_tbl$delta_AIC <- aic_tbl$AIC - min(aic_tbl$AIC, na.rm = TRUE)
+  aic_tbl <- aic_tbl[order(aic_tbl$AIC), , drop = FALSE]
+
+  selected_mode <- aic_tbl$pagel_lam_mode[1]
+  if (verbose) {
+    cat("Auto pagel_lam mode selected by AIC: ", selected_mode,
+        " (AIC=", round(aic_tbl$AIC[1], 6), ")\n", sep = "")
+  }
+
+  list(selected_mode = selected_mode, aic = aic_tbl)
+}
+
+
 do_transformation <- function(transform,
                               C,
                               log_prop_geomean,
                               use_pagel_lam = TRUE,
-                              pagel_lam_mode = c("global", "per_feature", "hierarchical", "none"),
+                              pagel_lam_mode = c("global", "per_feature", "hierarchical", "none", "auto"),
                               pagel_lam_lower = 1e-6,
                               pagel_lam_upper = 1,
                               hierarchical_K = 8,
                               verbose = TRUE) {
   pagel_lam_mode <- match.arg(pagel_lam_mode)
+
+  if (use_pagel_lam && pagel_lam_mode == "auto") {
+    auto_res <- select_pagel_lam_mode_by_aic(
+      Y = log_prop_geomean,
+      C = C,
+      lower = pagel_lam_lower,
+      upper = pagel_lam_upper,
+      hierarchical_K = hierarchical_K,
+      verbose = verbose
+    )
+    trans_res <- do_transformation(
+      transform = transform,
+      C = C,
+      log_prop_geomean = log_prop_geomean,
+      use_pagel_lam = use_pagel_lam,
+      pagel_lam_mode = auto_res$selected_mode,
+      pagel_lam_lower = pagel_lam_lower,
+      pagel_lam_upper = pagel_lam_upper,
+      hierarchical_K = hierarchical_K,
+      verbose = verbose
+    )
+    trans_res$pagel_lam_mode_selected <- auto_res$selected_mode
+    trans_res$pagel_lam_model_selection <- auto_res$aic
+    return(trans_res)
+  }
 
   transform_one <- function(y, C_use, transform) {
     C_inv <- solve(C_use)
@@ -846,9 +1146,20 @@ do_transformation <- function(transform,
 }
 
 
+back_transform_clr_to_prop <- function(X) {
+  X <- as.matrix(X)
+  X <- sweep(X, 1, apply(X, 1, max, na.rm = TRUE), "-")
+  P_back <- exp(X)
+  P_back <- sweep(P_back, 1, rowSums(P_back), "/")
+  rownames(P_back) <- rownames(X)
+  colnames(P_back) <- colnames(X)
+  P_back
+}
+
+
 ##################################
 get_grp_info <- function(grp_infile, species_exclude){
-    grp_info <- read.table(grp_infile, fill = TRUE, stringsAsFactors = FALSE, comment.char = "")
+    grp_info <- read.table(grp_infile, header = TRUE, row.names = 1, fill = TRUE, stringsAsFactors = FALSE, comment.char = "")
     grp_info <- grp_info[! rownames(grp_info) %in% species_exclude, , drop = FALSE]
     return(grp_info)
 }
@@ -915,6 +1226,7 @@ dist_method <- 'euclidean'
 is_standardize <- FALSE
 outlier_k <- 100
 species_exclude <- c()
+pagel_lam_mode <- "hierarchical"
 
 outdir <- NULL
 is_force <- FALSE
@@ -945,7 +1257,10 @@ spec = matrix(c(
     'dist', 'd', 2, 'character',
     'inter', 'i', 0, "logical",
     'standardize', 'S', 0, "logical",
-    'outlier', '', 2, 'double',
+    'pagel_lam_mode', 'P', 2, 'character',
+    'pagel_lam_sim', NA_character_, 2, 'character',
+    'sim_pagel_lam', NA_character_, 2, 'character',
+    'outlier', NA_character_, 2, 'double',
     'species_exclude', '_', 2, 'character',
     'sim_discrete_trait', 'D', 0, 'logical',
     'binary_rate', 'r', 2, 'double',
@@ -1047,6 +1362,28 @@ if(! is.null(opt$standardize)){
     is_standardize <- TRUE
 }
 
+if(! is.null(opt$pagel_lam_mode)){
+    pagel_lam_mode <- opt$pagel_lam_mode
+}
+if (identical(pagel_lam_mode, "hierchical")) {
+    pagel_lam_mode <- "hierarchical"
+}
+allowed_pagel_lam_modes <- c("global", "per_feature", "hierarchical", "none", "auto")
+if (!pagel_lam_mode %in% allowed_pagel_lam_modes) {
+    stop("pagel_lam_mode must be one of: ", paste(allowed_pagel_lam_modes, collapse = ", "))
+}
+
+sim_pagel_lam_spec <- NULL
+if (!is.null(opt$pagel_lam_sim)) {
+    sim_pagel_lam_spec <- opt$pagel_lam_sim
+}
+if (!is.null(opt$sim_pagel_lam)) {
+    if (!is.null(sim_pagel_lam_spec) && !identical(sim_pagel_lam_spec, opt$sim_pagel_lam)) {
+        stop("Use only one of --pagel_lam_sim or --sim_pagel_lam.")
+    }
+    sim_pagel_lam_spec <- opt$sim_pagel_lam
+}
+
 if (!is.null(opt$outlier)) {
     outlier_k <- opt$outlier
 }
@@ -1084,6 +1421,7 @@ if(! is.null(opt$outdir)){
       }
     }
     dir.create(outdir, recursive = TRUE)
+    writeLines(commandArgs(trailingOnly = FALSE), con = file.path(outdir, "cmd"))
 }
 
 
@@ -1116,14 +1454,16 @@ if(! is_sim){
     tree <- sim_res$tree
 
     prop <- sim_res$prop
-    above_names <- sim_res$above_names
+    trait_group_names <- sim_res$above_names
 
     abundance <- sim_res$abundance
     Sigma <- sim_res$Sigma
     Rho <- sim_res$Rho
 }
 
-trait_group_names <- above_names
+if (!exists("trait_group_names")) {
+    trait_group_names <- c()
+}
 if (is_sim && isTRUE(sim_discrete_trait)) {
     trait_group_names <- simulate_discrete_trait(tree, rate = binary_rate)
     cat("using simulated discrete trait with", length(trait_group_names), "state-1 tips at rate ", binary_rate, "\n", sep = "")
@@ -1169,6 +1509,34 @@ for(i in 1:dim(prop)[1]) # iterate host
     log_prop_geomean[i,] <- log(prop[i,]) - row_geomean_log_prop[i]
 }
 
+if (is_sim) {
+  if (is.null(colnames(log_prop_geomean))) {
+    colnames(log_prop_geomean) <- paste0("feature_", seq_len(ncol(log_prop_geomean)))
+    colnames(log_prop) <- colnames(log_prop_geomean)
+    colnames(prop) <- colnames(log_prop_geomean)
+    colnames(abundance) <- colnames(log_prop_geomean)
+  }
+  feature_cov <- align_feature_covariance(Sigma, Rho, colnames(log_prop_geomean))
+  Sigma <- feature_cov$Sigma
+  Rho <- feature_cov$Rho
+}
+
+sim_pagel_lam_res <- NULL
+if (is_sim && !is.null(sim_pagel_lam_spec)) {
+  sim_pagel_lam_res <- parse_sim_pagel_lam_spec(sim_pagel_lam_spec, ncol(log_prop_geomean))
+  sim_pagel_lam_data <- simulate_pagel_lam_clr_data(
+    C = C,
+    sim_pagel_lam_res = sim_pagel_lam_res,
+    Sigma = Sigma,
+    feature_names = colnames(log_prop_geomean)
+  )
+  prop <- sim_pagel_lam_data$prop
+  log_prop <- sim_pagel_lam_data$log_prop
+  log_prop_geomean <- sim_pagel_lam_data$log_prop_geomean
+  abundance <- prop
+  cat("simulated CLR-scale data with pagel_lam_sim spec: ", sim_pagel_lam_res$spec, "\n", sep = "")
+}
+
 
 ##################################
 # P is the transformed matrix
@@ -1177,7 +1545,7 @@ trans_res <- do_transformation(
   C = C,
   log_prop_geomean = log_prop_geomean,
   use_pagel_lam = TRUE,
-  pagel_lam_mode = "hierarchical" # "per_feature"
+  pagel_lam_mode = pagel_lam_mode
 )
 
 P <- trans_res$X
@@ -1189,10 +1557,47 @@ if (is.null(colnames(P))) {
   colnames(P) <- paste0("feature_", seq_len(ncol(P)))
 }
 
-pagel_lam_tbl <- data.frame(
-  feature = colnames(P),
-  pagel_lam_mle = trans_res$pagel_lam
-)
+P_back <- back_transform_clr_to_prop(P)
+
+pagel_lam_mode_used <- pagel_lam_mode
+if (!is.null(trans_res$pagel_lam_mode_selected)) {
+  pagel_lam_mode_used <- trans_res$pagel_lam_mode_selected
+}
+
+if (pagel_lam_mode_used == "hierarchical") {
+  pagel_lam_tbl <- data.frame(
+    feature = colnames(P),
+    pagel_lam_posterior_mean = trans_res$pagel_lam,
+    pagel_lam_map = trans_res$pagel_lam_map,
+    beta_alpha_mle = trans_res$pagel_lam_hyper_a,
+    beta_beta_mle = trans_res$pagel_lam_hyper_b,
+    hierarchical_converged = trans_res$hierarchical_converged
+  )
+} else {
+  pagel_lam_tbl <- data.frame(
+    feature = colnames(P),
+    pagel_lam_mle = trans_res$pagel_lam
+  )
+}
+
+if (!is.null(sim_pagel_lam_res)) {
+  pagel_lam_tbl$pagel_lam_sim <- round(sim_pagel_lam_res$values, 3)
+  pagel_lam_tbl$pagel_lam_sim_source <- sim_pagel_lam_res$source
+  pagel_lam_tbl$pagel_lam_sim_spec <- sim_pagel_lam_res$spec
+  pagel_lam_tbl$pagel_lam_sim_alpha <- round(sim_pagel_lam_res$alpha, 3)
+  pagel_lam_tbl$pagel_lam_sim_beta <- round(sim_pagel_lam_res$beta, 3)
+}
+
+pagel_lam_tbl$pagel_lam_mode <- pagel_lam_mode_used
+pagel_lam_tbl$pagel_lam_mode_requested <- pagel_lam_mode
+
+if (!is.null(trans_res$pagel_lam_model_selection)) {
+  write.table(
+    trans_res$pagel_lam_model_selection,
+    file = file.path(outdir, "pagel_lam_model_selection.tbl"),
+    sep = "\t", quote = FALSE, row.names = FALSE
+  )
+}
 
 write.table(
   pagel_lam_tbl,
@@ -1206,6 +1611,7 @@ write.table(round(prop, rounded_to), file = file.path(outdir, 'prop.tbl'), sep =
 write.table(round(log_prop, rounded_to), file = file.path(outdir, 'log_prop.tbl'), sep = "\t", quote = FALSE, row.names=TRUE)
 write.table(round(log_prop_geomean, rounded_to), file = file.path(outdir, 'log_prop_geomean.tbl'), sep = "\t", quote = FALSE, row.names=TRUE)
 write.table(round(P, rounded_to), file = file.path(outdir, 'P.tbl'), sep = "\t", quote = FALSE, row.names=TRUE)
+write.table(round(P_back, rounded_to), file = file.path(outdir, 'prop2.tbl'), sep = "\t", quote = FALSE, row.names=TRUE)
 
 if(is_sim){
     write.table(round(Sigma, rounded_to), file = file.path(outdir, 'Sigma.tbl'), sep = "\t", quote = FALSE, row.names=TRUE)
@@ -1216,7 +1622,7 @@ if(is_sim){
 ##################################
 # output file pdf
 outfile <- file.path(outdir, "pcoa.pdf")
-pdf(outfile)
+pdf(outfile, width = 14, height = 18)
 
 #rownames(P) <- rownames(log_prop_geomean)
 # normal pcoa, not phylo corrected
@@ -1234,30 +1640,35 @@ if(!is_sim){
 }
 
 # BC
-pcoa_0 <- calculate_pcoa(prop, 'bray', is_standardize, grp_list)
+pcoa_1 <- calculate_pcoa(prop, 'bray', is_standardize, grp_list)
 # standard PCA
-pcoa_1 <- calculate_pcoa(log_prop_geomean, dist_method, is_standardize, grp_list)
+pcoa_2 <- calculate_pcoa(log_prop_geomean, dist_method, is_standardize, grp_list)
 # phylo corrected
 if(! is_inter){
-    pcoa_2 <- calculate_pcoa(P, dist_method, is_standardize, grp_list)
-    plot_graphs(prop, log_prop_geomean, P, outfile, grp_list, outlier_k)
+    pcoa_3 <- calculate_pcoa(P, dist_method, is_standardize, grp_list)
+    pcoa_4 <- calculate_pcoa(P_back, 'bray', is_standardize, grp_list)
+    plot_graphs(prop, log_prop_geomean, P, P_back, grp_list, outlier_k)
 }
 
 
 ##################################
 # generate the groups that are determined by the two descendant lineages of the root
 grp_list_by_phylo <- get_phylo_groups(tree)
-plot_graphs(prop, log_prop_geomean, P, outfile, grp_list_by_phylo, outlier_k)
+plot_graphs(prop, log_prop_geomean, P, P_back, grp_list_by_phylo, outlier_k)
 
 
 ##################################
-pcoas <- list(pcoa_0, pcoa_1, pcoa_2)
+pcoas <- list(pcoa_1, pcoa_2)
+if (!is_inter) {
+    pcoas <- c(pcoas, list(pcoa_3, pcoa_4))
+}
 
 write_group_list(grp_list_by_phylo, outdir)
-write_adonis_results_for_groups(pcoa_0, outdir, "pcoa_0", grp_list_by_phylo, grp_list)
 write_adonis_results_for_groups(pcoa_1, outdir, "pcoa_1", grp_list_by_phylo, grp_list)
+write_adonis_results_for_groups(pcoa_2, outdir, "pcoa_2", grp_list_by_phylo, grp_list)
 if (!is_inter) {
-    write_adonis_results_for_groups(pcoa_2, outdir, "pcoa_2", grp_list_by_phylo, grp_list)
+    write_adonis_results_for_groups(pcoa_3, outdir, "pcoa_3", grp_list_by_phylo, grp_list)
+    write_adonis_results_for_groups(pcoa_4, outdir, "pcoa_4", grp_list_by_phylo, grp_list)
 }
 
 compare_outdir <- file.path(outdir, "compare")
@@ -1267,16 +1678,15 @@ dir.create(compare_outdir, recursive = TRUE)
 for (i in seq_along(pcoas)){
     rounded_to <- 3
     pcoa <- pcoas[[i]]
+    pcoa_name <- paste("pcoa_", i, sep='')
     explained_file <- file.path(compare_outdir, 'explained.tbl')
     # Compute the rounded, normalized eigenvalues
     vals <- round((pcoa$eig / sum(pcoa$eig))[1:min(bnum, tnum)], rounded_to)
     # Write one record per line, separated by spaces, append to file
-    write( vals, file = explained_file, ncolumns = length(vals), append = TRUE, sep = ' ')
-
-    pcoa_name <- paste("pcoa_", i, sep='')
+    write(c(pcoa_name, vals), file = explained_file, ncolumns = length(vals) + 1, append = TRUE, sep = ' ')
 
     # grp_by_trait
-    title <- paste("pcoa_name", "LDA_acc", "fdr_value", "DBI", sep="\t")
+    title <- paste("pcoa_name", "fdr_value", "DBI", sep="\t")
     determined_by_trait_outfile <- file.path(compare_outdir, "determined_by_trait.tbl")
     if(i == 1){
         write(title, file=determined_by_trait_outfile, append=TRUE, sep="\t")

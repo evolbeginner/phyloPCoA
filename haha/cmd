@@ -1,0 +1,17 @@
+/mnt/hd1/home/sishuo/anaconda3/lib/R/bin/exec/R
+--no-echo
+--no-restore
+--file=phyloPCoA.R
+--args
+--sim
+--tnum
+40
+--bnum
+10
+--pagel_lam_mode
+global
+--pagel_lam_sim
+beta:1,1
+--outdir
+haha
+--force

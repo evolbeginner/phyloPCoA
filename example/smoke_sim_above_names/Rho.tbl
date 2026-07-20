@@ -1,0 +1,9 @@
+feature_1	feature_2	feature_3	feature_4	feature_5	feature_6	feature_7	feature_8
+feature_1	1	0	0	0	0	0	0	0
+feature_2	0	1	0	0	0	0	0	0
+feature_3	0	0	1	0	0	0	0	0
+feature_4	0	0	0	1	0	0	0	0
+feature_5	0	0	0	0	1	0	0	0
+feature_6	0	0	0	0	0	1	0	0
+feature_7	0	0	0	0	0	0	1	0
+feature_8	0	0	0	0	0	0	0	1

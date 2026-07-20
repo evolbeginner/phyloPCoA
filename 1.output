@@ -1,0 +1,5 @@
+phyloPCoA_auto_test/compare//compared_to_R_matrix.tbl 
+pcoa_name	Correlation_coefficient	RMSD_top3	MRB_top3
+pcoa_1	NA	0.200987778011137	2.86434737273962
+pcoa_2	NA	0.198839193039731	2.88654653772244
+pcoa_3	NA	0.189821324787255	2.77527072784564

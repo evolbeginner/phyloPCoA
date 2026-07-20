@@ -1,0 +1,11 @@
+feature	pagel_lam_mle	pagel_lam_sim	pagel_lam_sim_source	pagel_lam_sim_spec	pagel_lam_sim_alpha	pagel_lam_sim_beta	pagel_lam_mode	pagel_lam_mode_requested
+feature_1	0.504493647285622	0.371	beta	beta:1,1	1	1	global	global
+feature_2	0.504493647285622	0.349	beta	beta:1,1	1	1	global	global
+feature_3	0.504493647285622	0.449	beta	beta:1,1	1	1	global	global
+feature_4	0.504493647285622	0.166	beta	beta:1,1	1	1	global	global
+feature_5	0.504493647285622	0.91	beta	beta:1,1	1	1	global	global
+feature_6	0.504493647285622	0.718	beta	beta:1,1	1	1	global	global
+feature_7	0.504493647285622	0.421	beta	beta:1,1	1	1	global	global
+feature_8	0.504493647285622	0.879	beta	beta:1,1	1	1	global	global
+feature_9	0.504493647285622	0.21	beta	beta:1,1	1	1	global	global
+feature_10	0.504493647285622	0.274	beta	beta:1,1	1	1	global	global

@@ -1,6 +1,25 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [v0.11.0]
+### Added
+- better descriptions into `Readme.md`
+
+## [v0.10.8]
+### Added
+- `prop2.tbl` as the back-transformed proportion table from `P`
+- A fourth PCoA panel using Bray-Curtis distance on `prop2.tbl`; each `pcoa.pdf` page now contains four PCoA plots and one tree
+
+## [v0.10.7]
+### Added
+- `--pagel_lam_mode auto` to compare `global`, `per_feature`, `hierarchical`, and `none` by AIC
+- `--pagel_lam_sim` / `--sim_pagel_lam` to simulate fixed or beta-drawn Pagel lambda values in simulation mode
+- `pagel_lam_model_selection.tbl` for AIC-based lambda mode selection
+
+## [v0.10.6]
+### Improved
+- Pagel's lambda improved (beta distr hierarchical, global, none)
+
 ## [v0.10.5]
 ### Added
 - discrete trait simulated by CTMC rather than the liability model
@@ -10,7 +29,7 @@ All notable changes to this project will be documented in this file.
 ### Improved
 - Moved the script history notes from `phyloPCoA.R` into this changelog
 ### Added
-- lambda
+- Pagel's lambda
 
 ## [0.10.3] - 2026-02-04
 ### Added
