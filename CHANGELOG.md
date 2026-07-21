@@ -1,9 +1,9 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [v0.11.0]
+## [v0.11.1]
 ### Added
-- better descriptions into `Readme.md`
+- Clearer descriptions into `Readme.md`
 
 ## [v0.10.8]
 ### Added

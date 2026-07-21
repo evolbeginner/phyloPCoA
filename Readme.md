@@ -30,7 +30,7 @@ Rscript phyloPCoA.R \
   --outdir haha \
   --force \
   --exponent 1 \
-  --pagel_lam_mode hierarchical \
+  --pagel_lam_mode beta \
   --pagel_lam_sim beta:2,5 \
   --sim
 ```
@@ -48,7 +48,7 @@ Rscript phyloPCoA.R \
 | `--sim` | Enable simulation mode |
 | `--species_exclude` | Drop listed species before analysis |
 | `--sim_discrete_trait` | Simulate a binary host trait in simulation mode |
-| `--pagel_lam_mode auto` | Pagel's lambda mode: `auto`, `global`, `per_feature`, `hierarchical`, or `none`; `auto` compares modes by AIC |
+| `--pagel_lam_mode auto` | Pagel's lambda mode: `auto`, `global`, `per_feature`, `beta|hierarchical`, or `none`; `auto` compares modes by AIC |
 | `--pagel_lam_sim 0.7` | Simulate ground-truth Pagel lambda values for all features |
 | `--pagel_lam_sim beta:2,5` | Simulate ground-truth per-feature Pagel lambda values drawn from `Beta(2,5)` |
 
@@ -77,7 +77,7 @@ All outputs are written to `--outdir`.
 | `log_prop_geomean.tbl` | Log-proportion table used for phylogenetic transforms |
 | `P.tbl` | Phylogenetically transformed abundance matrix |
 | `prop2.tbl` | Back-transformed proportions from `P` |
-| `pagel_lam_estimates.tbl` | Pagel's lambda estimates by feature; hierarchical mode reports posterior mean, MAP lambda, and MLE beta alpha/beta hyperparameters |
+| `pagel_lam_estimates.tbl` | Pagel's lambda estimates by feature; hierarchical(beta-distr) mode reports posterior mean, MAP lambda, and MLE beta alpha/beta hyperparameters |
 | `pagel_lam_model_selection.tbl` | AIC comparison table written when `--pagel_lam_mode auto` is used |
 | `pcoa.pdf` | Two pages of PCoA visualizations, each with four PCoA plots (including Bray-Curtis on `prop2.tbl`) and one host tree |
 | `adonis/` | PERMANOVA results for PCoA axes |

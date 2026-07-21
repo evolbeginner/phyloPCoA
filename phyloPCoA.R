@@ -1109,7 +1109,7 @@ do_transformation <- function(transform,
           " median=", round(median(pagel_lam_est, na.rm = TRUE), 6),
           " max=", round(max(pagel_lam_est, na.rm = TRUE), 6), "\n", sep = "")
     }
-  } else if (pagel_lam_mode == "hierarchical") {
+  } else if (pagel_lam_mode %in% c('hierarchical', 'beta', 'Beta') ) {
     hfit <- estimate_pagel_lam_hierarchical(
       Y = log_prop_geomean, C = C, K = hierarchical_K, verbose = verbose
     )
