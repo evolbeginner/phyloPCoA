@@ -486,7 +486,7 @@ calculate_correl_with_Rho <- function(Rho, pcoas, outfile) {
 }
 
 
-write_adonis_results <- function(pcoa_res, grp_list, outdir, prefix) {
+write_adonis_results <- function(pcoa_res, grp_list, outdir, outfile, pcoa_name) {
   adonis_dir <- file.path(outdir, "adonis")
   dir.create(adonis_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -524,24 +524,27 @@ write_adonis_results <- function(pcoa_res, grp_list, outdir, prefix) {
   all_axes <- run_adonis(coords_all)
   first_two <- run_adonis(coords_2)
 
-  write.table(
-    all_axes,
-    file = file.path(adonis_dir, paste0(prefix, "_all_axes.tbl")),
-    sep = "\t", quote = FALSE, row.names = FALSE
-  )
-  write.table(
-    first_two,
-    file = file.path(adonis_dir, paste0(prefix, "_pc1_pc2.tbl")),
-    sep = "\t", quote = FALSE, row.names = FALSE
-  )
+  all_axes$pcoa <- pcoa_name
+  first_two$pcoa <- pcoa_name
+  all_axes <- all_axes[, c("pcoa", "term", "R2", "P_value")]
+  first_two <- first_two[, c("pcoa", "term", "R2", "P_value")]
+
+  write_one <- function(x, path) {
+    write.table(x, file = path, sep = "\t", quote = FALSE,
+                row.names = FALSE, col.names = !file.exists(path),
+                append = file.exists(path))
+  }
+  write_one(all_axes, file.path(adonis_dir, paste0(outfile, "_all_axes.tbl")))
+  pc1_pc2_suffix <- if (outfile == "by_trait") "_all_pc1_pc2.tbl" else "_pc1_pc2.tbl"
+  write_one(first_two, file.path(adonis_dir, paste0(outfile, pc1_pc2_suffix)))
 }
 
-write_adonis_results_for_groups <- function(pcoa_res, outdir, prefix, grp_list_phylo = NULL, grp_list_trait = NULL) {
+write_adonis_results_for_groups <- function(pcoa_res, outdir, pcoa_name, grp_list_phylo = NULL, grp_list_trait = NULL) {
   if (!is.null(grp_list_trait)) {
-    write_adonis_results(pcoa_res, grp_list_trait, outdir, paste0(prefix, "_by_trait"))
+    write_adonis_results(pcoa_res, grp_list_trait, outdir, "by_trait", pcoa_name)
   }
   if (!is.null(grp_list_phylo)) {
-    write_adonis_results(pcoa_res, grp_list_phylo, outdir, paste0(prefix, "_by_phylo"))
+    write_adonis_results(pcoa_res, grp_list_phylo, outdir, "by_phylo", pcoa_name)
   }
 }
 
@@ -1011,7 +1014,7 @@ do_transformation <- function(transform,
                               C,
                               log_prop_geomean,
                               use_pagel_lam = TRUE,
-                              pagel_lam_mode = c("global", "per_feature", "hierarchical", "none", "auto"),
+                              pagel_lam_mode = c("global", "per_feature", "hierarchical", "beta", "none", "auto"),
                               pagel_lam_lower = 1e-6,
                               pagel_lam_upper = 1,
                               hierarchical_K = 8,
@@ -1368,7 +1371,7 @@ if(! is.null(opt$pagel_lam_mode)){
 if (identical(pagel_lam_mode, "hierchical")) {
     pagel_lam_mode <- "hierarchical"
 }
-allowed_pagel_lam_modes <- c("global", "per_feature", "hierarchical", "none", "auto")
+allowed_pagel_lam_modes <- c("global", "per_feature", "hierarchical", "beta", "none", "auto")
 if (!pagel_lam_mode %in% allowed_pagel_lam_modes) {
     stop("pagel_lam_mode must be one of: ", paste(allowed_pagel_lam_modes, collapse = ", "))
 }
@@ -1664,6 +1667,20 @@ if (!is_inter) {
 }
 
 write_group_list(grp_list_by_phylo, outdir)
+write_group_list(grp_list, outdir, "grp_list_by_trait.tbl")
+# Aggregate adonis results: one row per PCoA in each of four files.
+adonis_dir <- file.path(outdir, "adonis")
+for (f in c("by_phylo_all_axes.tbl", "by_trait_all_axes.tbl",
+            "by_phylo_pc1_pc2.tbl", "by_trait_all_pc1_pc2.tbl")) {
+    unlink(file.path(adonis_dir, f))
+}
+# Remove files produced by the previous one-file-per-PCoA layout.
+legacy_adonis_files <- list.files(
+    adonis_dir,
+    pattern = "^pcoa_[1-4]_by_(phylo|trait)_(all_axes|pc1_pc2)\\.tbl$",
+    full.names = TRUE
+)
+unlink(legacy_adonis_files)
 write_adonis_results_for_groups(pcoa_1, outdir, "pcoa_1", grp_list_by_phylo, grp_list)
 write_adonis_results_for_groups(pcoa_2, outdir, "pcoa_2", grp_list_by_phylo, grp_list)
 if (!is_inter) {
