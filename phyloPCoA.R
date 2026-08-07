@@ -554,10 +554,11 @@ write_group_list <- function(grp_list, outdir, filename = "grp_list_by_phylo.tbl
   dir.create(adonis_dir, recursive = TRUE, showWarnings = FALSE)
 
   group_df <- do.call(rbind, lapply(names(grp_list), function(g) {
+    labels <- as.character(grp_list[[g]]$labels)
     data.frame(
-      group = g,
-      sample = grp_list[[g]]$labels,
-      color = grp_list[[g]]$col,
+      group = rep(g, length(labels)),
+      sample = labels,
+      color = rep(grp_list[[g]]$col, length(labels)),
       stringsAsFactors = FALSE
     )
   }))
