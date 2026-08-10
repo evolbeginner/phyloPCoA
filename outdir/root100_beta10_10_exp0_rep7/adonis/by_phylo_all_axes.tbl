@@ -1,0 +1,5 @@
+pcoa	term	R2	P_value
+pcoa_1	grp_factor	0.228270553161073	0.001
+pcoa_2	grp_factor	0.461486778327898	0.001
+pcoa_3	grp_factor	0.0240435811187101	0.319
+pcoa_4	grp_factor	0.0292764981715399	0.22
