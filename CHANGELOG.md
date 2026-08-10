@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [v0.11.4]
+### Fixed
+- retry upto 100 times if any state has <4% of samples during simulation
+
 ## [v0.11.3]
 ### Fixed
 - fixed occassional bugs of no output when root age >= 100

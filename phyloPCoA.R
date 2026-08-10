@@ -212,11 +212,24 @@ do_sim <- function(tnum, bnum, lambda, mu, rho, age, exponent){
     Sigma <- sim_cov_res$Sigma
     Rho <- sim_cov_res$Rho
 
-    rs <- rnorm(ncol(Sigma), mean_a, sd_a) # diff root_values, XQ
-    abundance <- exp(mvSIM(tree, model="BM1", nsim=1, param=list(sigma=Sigma, theta=rs)))
+    # Retry the joint simulation when thresholding the phenotype would create
+    # a missing or very small state.  Keeping this retry here preserves the
+    # simulated covariance between the phenotype and microbial features.
+    max_trait_attempts <- 100L
+    min_state_size <- ceiling(0.2 * tnum)
+    for (trait_attempt in seq_len(max_trait_attempts)) {
+        rs <- rnorm(ncol(Sigma), mean_a, sd_a) # diff root_values, XQ
+        abundance <- exp(mvSIM(tree, model="BM1", nsim=1,
+                               param=list(sigma=Sigma, theta=rs)))
+        above_names <- get_binary(abundance, rs) # last column above root value
+        state_sizes <- c(length(above_names), tnum - length(above_names))
+        if (all(state_sizes >= min_state_size)) break
+    }
+    if (!all(state_sizes >= min_state_size)) {
+        stop("Could not simulate trait states with at least 10% of samples ",
+             "in each state after ", max_trait_attempts, " attempts.")
+    }
     log_abundance <- abundance
-
-    above_names <- get_binary(abundance, rs) #last column above root value
 
     # remove the last column (binary trait, not microbial abundance)
     num_cols <- ncol(abundance)
@@ -300,7 +313,8 @@ get_phylo_groups <- function(tree){
 }
 
 
-simulate_discrete_trait <- function(tree, rate = 0.1) {
+simulate_discrete_trait <- function(tree, rate = 0.1, max_attempts = 10L,
+                                    min_proportion = 0.04) {
   # Ensure strictly bifurcating tree (defensive)
   if (!is.binary(tree)) {
     tree <- multi2di(tree)
@@ -312,15 +326,26 @@ simulate_discrete_trait <- function(tree, rate = 0.1) {
   rownames(Q) <- colnames(Q) <- c("0", "1")
 
   # root.value is index in states, so use 1 (state "0")
-  trait_states <- ape::rTraitDisc(
-    phy = tree,
-    model = Q,
-    states = c("0", "1"),
-    root.value = 1,
-    ancestor = FALSE
-  )
+  n_samples <- ape::Ntip(tree)
+  min_state_size <- ceiling(min_proportion * n_samples)
 
-  names(trait_states[trait_states == "1"])
+  for (attempt in seq_len(max_attempts)) {
+    trait_states <- ape::rTraitDisc(
+      phy = tree,
+      model = Q,
+      states = c("0", "1"),
+      root.value = 1,
+      ancestor = FALSE
+    )
+    state_sizes <- table(factor(trait_states, levels = c("0", "1")))
+    if (all(state_sizes >= min_state_size)) {
+      return(names(trait_states[trait_states == "1"]))
+    }
+  }
+
+  stop("Could not simulate discrete trait states with at least ",
+       min_proportion * 100, "% of samples in each state after ",
+       max_attempts, " attempts.")
 }
 
 
