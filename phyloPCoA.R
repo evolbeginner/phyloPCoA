@@ -959,7 +959,8 @@ select_pagel_lam_mode_by_aic <- function(Y,
                                          lower = 1e-6,
                                          upper = 1,
                                          hierarchical_K = 8,
-                                         verbose = TRUE) {
+                                         verbose = TRUE,
+                                         include_hierarchical = TRUE) {
   if (is.vector(Y)) Y <- matrix(Y, ncol = 1)
 
   scores <- list()
@@ -1008,18 +1009,20 @@ select_pagel_lam_mode_by_aic <- function(Y,
     stringsAsFactors = FALSE
   )
 
-  hfit <- estimate_pagel_lam_hierarchical(
-    Y = Y, C = C, K = hierarchical_K, verbose = verbose
-  )
-  hierarchical_ll <- -hfit$optim$value
-  scores[["hierarchical"]] <- data.frame(
-    pagel_lam_mode = "hierarchical",
-    logLik = hierarchical_ll,
-    lambda_params = 2,
-    n_valid_features = sum(apply(hfit$loglik_matrix, 1, function(z) any(is.finite(z)))),
-    AIC = -2 * hierarchical_ll + 4,
-    stringsAsFactors = FALSE
-  )
+  if (isTRUE(include_hierarchical)) {
+    hfit <- estimate_pagel_lam_hierarchical(
+      Y = Y, C = C, K = hierarchical_K, verbose = verbose
+    )
+    hierarchical_ll <- -hfit$optim$value
+    scores[["hierarchical"]] <- data.frame(
+      pagel_lam_mode = "hierarchical",
+      logLik = hierarchical_ll,
+      lambda_params = 2,
+      n_valid_features = sum(apply(hfit$loglik_matrix, 1, function(z) any(is.finite(z)))),
+      AIC = -2 * hierarchical_ll + 4,
+      stringsAsFactors = FALSE
+    )
+  }
 
   aic_tbl <- do.call(rbind, scores)
   rownames(aic_tbl) <- NULL
@@ -1054,6 +1057,7 @@ do_transformation <- function(transform,
       lower = pagel_lam_lower,
       upper = pagel_lam_upper,
       hierarchical_K = hierarchical_K,
+      include_hierarchical = FALSE,
       verbose = verbose
     )
     trans_res <- do_transformation(
