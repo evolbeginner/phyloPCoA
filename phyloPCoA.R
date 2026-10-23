@@ -313,37 +313,26 @@ get_phylo_groups <- function(tree){
 }
 
 
-simulate_discrete_trait <- function(tree, rate = 0.1, max_attempts = 10L,
+simulate_discrete_trait <- function(C, pagel_lam, max_attempts = 100L,
                                     min_proportion = 0.04) {
-  # Ensure strictly bifurcating tree (defensive)
-  if (!is.binary(tree)) {
-    tree <- multi2di(tree)
-  }
-
-  # Binary CTMC rate matrix
-  Q <- matrix(c(-rate, rate,
-                rate, -rate), nrow = 2, byrow = TRUE)
-  rownames(Q) <- colnames(Q) <- c("0", "1")
-
-  # root.value is index in states, so use 1 (state "0")
-  n_samples <- ape::Ntip(tree)
+  C_lam <- make_C_pagel_lam(C, pagel_lam)
+  n_samples <- nrow(C_lam)
   min_state_size <- ceiling(min_proportion * n_samples)
 
   for (attempt in seq_len(max_attempts)) {
-    trait_states <- ape::rTraitDisc(
-      phy = tree,
-      model = Q,
-      states = c("0", "1"),
-      root.value = 1,
-      ancestor = FALSE
-    )
+    liability <- as.numeric(MASS::mvrnorm(
+      1, mu = rep(0, n_samples), Sigma = C_lam
+    ))
+    liability <- liability - mean(liability)
+    trait_states <- ifelse(liability > 0, "1", "0")
     state_sizes <- table(factor(trait_states, levels = c("0", "1")))
     if (all(state_sizes >= min_state_size)) {
+      names(trait_states) <- rownames(C_lam)
       return(names(trait_states[trait_states == "1"]))
     }
   }
 
-  stop("Could not simulate discrete trait states with at least ",
+  stop("Could not simulate liability-threshold trait states with at least ",
        min_proportion * 100, "% of samples in each state after ",
        max_attempts, " attempts.")
 }
@@ -680,31 +669,44 @@ simulate_pagel_lam_clr_data <- function(C, sim_pagel_lam_res, Sigma, feature_nam
   n_features <- length(lam_values)
   n_tips <- nrow(C)
   Sigma <- as.matrix(Sigma)
-  if (nrow(Sigma) != n_features || ncol(Sigma) != n_features) {
-    stop("Sigma dimensions must match pagel_lam simulated feature count.")
+  has_trait <- nrow(Sigma) == n_features + 1 && ncol(Sigma) == n_features + 1
+  if (!(nrow(Sigma) == n_features && ncol(Sigma) == n_features) && !has_trait) {
+    stop("Sigma dimensions must match the simulated features, optionally including the phenotype.")
   }
 
+  if (has_trait) {
+    trait_lambda <- mean(lam_values)
+    lam_values <- c(lam_values, trait_lambda)
+  }
+  n_variables <- length(lam_values)
   C_lams <- lapply(lam_values, function(lam) make_C_pagel_lam(C, lam))
   if (length(unique(round(lam_values, 12))) == 1) {
     L_C <- t(chol(C_lams[[1]]))
     U_Sigma <- chol(Sigma)
-    X <- L_C %*% matrix(rnorm(n_tips * n_features), n_tips, n_features) %*% U_Sigma
+    X <- L_C %*% matrix(rnorm(n_tips * n_variables), n_tips, n_variables) %*% U_Sigma
   } else {
-    joint_cov <- matrix(NA_real_, n_tips * n_features, n_tips * n_features)
-    for (j in seq_len(n_features)) {
+    joint_cov <- matrix(NA_real_, n_tips * n_variables, n_tips * n_variables)
+    for (j in seq_len(n_variables)) {
       row_idx <- ((j - 1) * n_tips + 1):(j * n_tips)
-      for (k in seq_len(n_features)) {
+      for (k in seq_len(n_variables)) {
         col_idx <- ((k - 1) * n_tips + 1):(k * n_tips)
         joint_cov[row_idx, col_idx] <- Sigma[j, k] * sqrt(pmax(C_lams[[j]] * C_lams[[k]], 0))
       }
     }
     joint_cov <- as.matrix(Matrix::nearPD(joint_cov)$mat)
-    x_vec <- as.numeric(MASS::mvrnorm(1, mu = rep(0, n_tips * n_features), Sigma = joint_cov))
-    X <- matrix(x_vec, nrow = n_tips, ncol = n_features)
+    x_vec <- as.numeric(MASS::mvrnorm(1, mu = rep(0, n_tips * n_variables), Sigma = joint_cov))
+    X <- matrix(x_vec, nrow = n_tips, ncol = n_variables)
   }
 
-  X <- sweep(X, 1, rowMeans(X), "-")
   rownames(X) <- rownames(C)
+
+  trait_group_names <- NULL
+  if (has_trait) {
+    liability <- X[, n_features + 1]
+    trait_group_names <- rownames(X)[liability > 0]
+    X <- X[, seq_len(n_features), drop = FALSE]
+  }
+  X <- sweep(X, 1, rowMeans(X), "-")
   if (!is.null(feature_names)) {
     colnames(X) <- feature_names
   }
@@ -717,7 +719,8 @@ simulate_pagel_lam_clr_data <- function(C, sim_pagel_lam_res, Sigma, feature_nam
   list(
     prop = prop,
     log_prop = log_prop,
-    log_prop_geomean = log_prop_geomean
+    log_prop_geomean = log_prop_geomean,
+    trait_group_names = trait_group_names
   )
 }
 
@@ -1297,6 +1300,7 @@ spec = matrix(c(
     'species_exclude', '_', 2, 'character',
     'sim_discrete_trait', 'D', 0, 'logical',
     'binary_rate', 'r', 2, 'double',
+    'seed', NA_character_, 2, 'integer',
 
     'help' , 'h', 0, "logical",
     'outdir', 'o', 1, "character",
@@ -1304,6 +1308,9 @@ spec = matrix(c(
 ), byrow=TRUE, ncol=4)
 
 opt <- getopt(spec)
+if (!is.null(opt$seed)) {
+    set.seed(opt$seed)
+}
 
 
 ##################################
@@ -1497,12 +1504,6 @@ if(! is_sim){
 if (!exists("trait_group_names")) {
     trait_group_names <- c()
 }
-if (is_sim && isTRUE(sim_discrete_trait)) {
-    trait_group_names <- simulate_discrete_trait(tree, rate = binary_rate)
-    cat("using simulated discrete trait with", length(trait_group_names), "state-1 tips at rate ", binary_rate, "\n", sep = "")
-}
-
-
 if(is_check){
     phylo_sig <- check_BM(prop, tree, filter_P, filter_mode)
     if(filter_mode == 'lambda'){
@@ -1543,6 +1544,7 @@ for(i in 1:dim(prop)[1]) # iterate host
 }
 
 if (is_sim) {
+  Sigma_joint <- Sigma
   if (is.null(colnames(log_prop_geomean))) {
     colnames(log_prop_geomean) <- paste0("feature_", seq_len(ncol(log_prop_geomean)))
     colnames(log_prop) <- colnames(log_prop_geomean)
@@ -1560,14 +1562,24 @@ if (is_sim && !is.null(sim_pagel_lam_spec)) {
   sim_pagel_lam_data <- simulate_pagel_lam_clr_data(
     C = C,
     sim_pagel_lam_res = sim_pagel_lam_res,
-    Sigma = Sigma,
+    Sigma = Sigma_joint,
     feature_names = colnames(log_prop_geomean)
   )
   prop <- sim_pagel_lam_data$prop
   log_prop <- sim_pagel_lam_data$log_prop
   log_prop_geomean <- sim_pagel_lam_data$log_prop_geomean
   abundance <- prop
+  if (!is.null(sim_pagel_lam_data$trait_group_names)) {
+    trait_group_names <- sim_pagel_lam_data$trait_group_names
+  }
   cat("simulated CLR-scale data with pagel_lam_sim spec: ", sim_pagel_lam_res$spec, "\n", sep = "")
+}
+
+if (is_sim && isTRUE(sim_discrete_trait) && is.null(sim_pagel_lam_res)) {
+  trait_pagel_lam <- 1
+  trait_group_names <- simulate_discrete_trait(C, pagel_lam = trait_pagel_lam)
+  cat("using Pagel-lambda liability-threshold trait with", length(trait_group_names),
+      "state-1 tips at lambda ", round(trait_pagel_lam, 6), "\n", sep = "")
 }
 
 

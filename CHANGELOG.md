@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [v0.12.0]
+### Fixed
+- adonis/ results corrected now for `--pagel_lam_sim`. There used to be a bug in grouping under pagel's lambda.
+
 ## [v0.11.5]
 ### Fixed
 - `--auto` would not perform beta distr
