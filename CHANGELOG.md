@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [v0.12.1]
+### Added
+- `run_auc.py`
+
 ## [v0.12.0]
 ### Fixed
 - adonis/ results corrected now for `--pagel_lam_sim`. There used to be a bug in grouping under pagel's lambda.
